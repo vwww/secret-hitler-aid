@@ -119,6 +119,11 @@
     .prob.high { color: var(--red); }
     .prob.low { color: var(--blue); }
     .role-pill { color: var(--muted); font: 10px var(--mono); }
+    .role-move-list { display: grid; gap: 10px; margin-top: 15px; padding-top: 12px; border-top: 1px solid var(--line); }
+    .role-move-list h4 { margin: 0; color: var(--dim); font: 10px var(--mono); text-transform: uppercase; }
+    .role-move-row { display: grid; grid-template-columns: minmax(105px, .7fr) minmax(0, 1.3fr); gap: 10px; align-items: start; }
+    .role-move-row strong { display: block; color: var(--ink); font-size: 13px; }
+    .role-move-row p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
     .status-pill { display: inline-block; margin-left: 5px; color: var(--red); font: 9px var(--mono); }
     tr.is-executed { opacity: .68; }
     .log { margin-top: 26px; }
@@ -1218,9 +1223,9 @@
       renderAll();
     }
 
-    function recommendation() {
+    function recommendation(actorRole = $("role").value, actorSeat = seat("you")) {
       const { beliefs, knownRoles } = enumerateBeliefs();
-      const ownRole = $("role").value;
+      const ownRole = actorRole;
       const ownTeam = ownRole === "Liberal" ? -1 : 1;
       const fasPolicies = Number($("fasPolicies").value);
       const tracker = Number($("tracker").value);
@@ -1278,13 +1283,13 @@
         const type = $("power-type").value;
         if (type === "special") {
           for (let number = 1; number <= playerCount(); number++) {
-            if (number === seat("you") || state.game.eliminated.has(number)) continue;
+            if (number === actorSeat || state.game.eliminated.has(number)) continue;
             const risk = suspicion(number);
             addChoice(`Nominate ${playerName(number)}`, ownTeam < 0 ? -risk * 8 : risk * 8, `Estimated fascist chance: ${Math.round(risk * 100)}%.`);
           }
         } else {
           for (let number = 1; number <= playerCount(); number++) {
-            if (number === seat("you") || state.game.eliminated.has(number)) continue;
+            if (number === actorSeat || state.game.eliminated.has(number)) continue;
             const belief = beliefs[number];
             const candidateValue = type === "execute"
               ? ownTeam < 0 ? belief.hitler * 100 + belief.fascist * 9 : (1 - belief.fascist) * 7 - belief.hitler * 100
@@ -1300,6 +1305,24 @@
       choices.forEach((choice, index) => choice.probability = probabilities[index]);
       const best = choices[0];
       return { choices, best, reason: best.reason, beliefs, knownRoles };
+    }
+
+    function renderRoleMoveAdvice(actorSeat) {
+      const { beliefs, knownRoles } = enumerateBeliefs();
+      const knownRole = knownRoles.get(actorSeat);
+      const belief = beliefs[actorSeat] ?? { liberal: 0, fascist: 0, hitler: 0 };
+      const possibleRoles = knownRole
+        ? [[knownRole, 1]]
+        : [
+            ["Liberal", belief.liberal],
+            ["Fascist", Math.max(0, belief.fascist - belief.hitler)],
+            ["Hitler", belief.hitler]
+          ].filter(([, probability]) => probability > 0);
+      const rows = possibleRoles.map(([role, probability]) => {
+        const result = recommendation(role, actorSeat);
+        return `<div class="role-move-row"><span class="role-pill">${escapeHtml(role.toUpperCase())} · ${Math.round(probability * 100)}%</span><div><strong>${escapeHtml(result.error ? "No legal move" : result.best.name)}</strong><p>${escapeHtml(result.error || result.reason)}</p></div></div>`;
+      }).join("");
+      return `<div class="role-move-list"><h4>Best move for ${escapeHtml(playerName(actorSeat))} by possible role</h4>${rows}</div>`;
     }
 
     function renderResult() {
@@ -1325,7 +1348,9 @@
             "veto-result": `No move for you here. ${playerName(game.president)} decides whether to approve the veto.`,
             "power": `No move for you here. ${playerName(game.president)} resolves the executive power.`
           };
-          $("result").innerHTML = `<div class="result-top"><div><div class="result-label">Current stage</div><h3>${escapeHtml(messages[game.stage])}</h3></div></div><p class="reason">The next entry is shown in the live game panel.</p>`;
+          const otherPresidentTurn = !isPresident && ["nomination", "veto-result", "power"].includes(game.stage);
+          const roleMoveAdvice = otherPresidentTurn ? renderRoleMoveAdvice(game.president) : "";
+          $("result").innerHTML = `<div class="result-top"><div><div class="result-label">Current stage</div><h3>${escapeHtml(messages[game.stage])}</h3></div></div><p class="reason">The next entry is shown in the live game panel.</p>${roleMoveAdvice}`;
           renderBeliefs();
           return;
         }
