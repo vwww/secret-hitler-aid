@@ -371,6 +371,8 @@
 
     function renderPhaseFields() {
       const container = $("phase-fields");
+      const currentHand = $("hand")?.value ?? "";
+      const currentOffice = $("office")?.value;
       container.replaceChildren();
       const phase = $("phase").value;
       const count = playerCount();
@@ -390,6 +392,8 @@
         cards.className = "field full";
         cards.innerHTML = '<label>Policies in your hand</label><div id="hand-picker" class="card-picker"></div><input id="hand" type="hidden" value=""><p class="hint">Tap L or F for each card: 3 as president, 2 as chancellor.</p>';
         container.append(cards);
+        if (currentOffice) $("office").value = currentOffice;
+        $("hand").value = currentHand;
         renderHandPicker();
       } else if (phase === "veto") {
         container.append(phaseField("Your office", "veto-office", [["president", "President: accept or veto"], ["chancellor", "Chancellor: accept or veto"]]));
