@@ -302,6 +302,7 @@
         stage: "setup",
         president: 1,
         chancellor: 0,
+        lastPresident: 0,
         lastChancellor: 0,
         pendingPower: "",
         pendingPolicy: "",
@@ -775,6 +776,16 @@
         .filter((number) => !state.game.eliminated.has(number));
     }
 
+    function eligibleChancellors() {
+      const living = livingSeats();
+      const currentPresident = state.game.active ? state.game.president : seat("president");
+      const lastPresident = state.game.active ? state.game.lastPresident : 0;
+      const lastChancellor = state.game.active ? state.game.lastChancellor : 0;
+      const fivePlayersRemain = living.length === 5;
+      return living.filter((number) => number !== currentPresident && number !== lastChancellor &&
+        (fivePlayersRemain || number !== lastPresident));
+    }
+
     function nextPresident() {
       const game = state.game;
       if (game.specialActive) {
@@ -875,8 +886,8 @@
       $("workflow-fields").replaceChildren();
       $("advance-game").hidden = false;
       $("advance-game").disabled = true;
+      const eligible = eligibleChancellors().map((number) => [String(number), playerName(number)]);
       const options = livingSeats().map((number) => [String(number), playerName(number)]);
-      const eligible = options.filter(([number]) => Number(number) !== game.president && Number(number) !== game.lastChancellor);
       const mayVeto = Number($("fasPolicies").value) >= 5 && !game.vetoDenied;
 
       if (game.stage === "nomination") {
@@ -1041,6 +1052,7 @@
           finishFailedGovernment();
         } else {
           $("tracker").value = "0";
+          game.lastPresident = game.president;
           game.lastChancellor = game.chancellor;
           game.vetoDenied = false;
           addEvidence("election-trust", game.president, game.chancellor);
@@ -1146,6 +1158,7 @@
         stage: "nomination",
         president: seat("president") || 1,
         chancellor: 0,
+        lastPresident: 0,
         lastChancellor: 0,
         pendingPower: "",
         pendingPolicy: "",
@@ -1190,15 +1203,14 @@
       const addChoice = (name, value, reason) => choices.push({ name, value, reason });
       const suspicion = (number) => beliefs[number]?.fascist ?? 0.5;
       if (phase === "nomination") {
-        for (let number = 1; number <= playerCount(); number++) {
-          if (number === seat("you") || number === seat("lastChancellor") || state.game.eliminated.has(number)) continue;
+        for (const number of eligibleChancellors()) {
           const h = beliefs[number]?.hitler ?? 0;
           const f = suspicion(number);
           let value = ownTeam < 0 ? -(f * 9 + h * (fasPolicies >= 3 ? 100 : 1)) : f * 9 + h * (fasPolicies >= 3 ? 100 : 1);
           if (ownTeam > 0 && f > 0.5) value += 1.5;
           addChoice(playerName(number), value, `${Math.round(f * 100)}% estimated fascist; ${Math.round(h * 100)}% estimated Hitler.`);
         }
-        if (!choices.length) return { error: "No eligible chancellor candidates remain. Check the living seats and term-limit inputs.", beliefs, knownRoles };
+        if (!choices.length) return { error: "No eligible chancellor candidates remain. Check the living seats and previous government term limits.", beliefs, knownRoles };
         choices.sort((a, b) => b.value - a.value);
         const best = choices[0];
         const probabilities = regretMatch(choices);
