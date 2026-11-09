@@ -417,6 +417,8 @@
       const container = $("phase-fields");
       const currentHand = $("hand")?.value ?? "";
       const currentOffice = $("office")?.value;
+      const currentPower = $("power-type")?.value;
+      const currentPowerDisabled = $("power-type")?.disabled ?? false;
       container.replaceChildren();
       const phase = $("phase").value;
       const count = playerCount();
@@ -444,6 +446,10 @@
         container.append(phaseField("Other player's response", "veto-response", [["unknown", "Not known yet"], ["accept", "Will accept"], ["veto", "Will veto"]]));
       } else {
         container.append(phaseField("Power", "power-type", [["investigate", "Investigate loyalty"], ["execute", "Execution"], ["special", "Special election"]]));
+        if (currentPower) {
+          $("power-type").value = currentPower;
+          $("power-type").disabled = currentPowerDisabled;
+        }
       }
     }
 
