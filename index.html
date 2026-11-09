@@ -1,0 +1,613 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101513">
+  <title>Secret Hitler | Bayesian CFR Advisor</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #e8eee8;
+      --muted: #9aa79e;
+      --dim: #66746b;
+      --bg: #101513;
+      --panel: #18201b;
+      --panel-raised: #202a23;
+      --line: #334138;
+      --green: #b7ee78;
+      --green-deep: #243820;
+      --red: #f27b69;
+      --gold: #f0c66f;
+      --blue: #88c7ce;
+      --serif: Georgia, "Times New Roman", serif;
+      --sans: "Segoe UI", "Trebuchet MS", sans-serif;
+      --mono: Consolas, "Courier New", monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(ellipse at 75% -15%, #344533 0, transparent 38%), var(--bg);
+      color: var(--ink);
+      font: 14px/1.45 var(--sans);
+      min-width: 320px;
+    }
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+    .shell { max-width: 1440px; margin: auto; padding: 28px clamp(16px, 3vw, 42px) 48px; }
+    header {
+      display: flex; align-items: flex-end; justify-content: space-between; gap: 24px;
+      border-bottom: 1px solid var(--line); padding-bottom: 22px; margin-bottom: 20px;
+    }
+    .eyebrow, .section-kicker { color: var(--green); text-transform: uppercase; letter-spacing: 0; font: 11px/1.3 var(--mono); }
+    h1 { margin: 7px 0 0; font: 36px/1.02 var(--serif); letter-spacing: 0; }
+    .subtitle { color: var(--muted); margin: 9px 0 0; max-width: 650px; }
+    .engine-tag { color: var(--muted); font: 11px/1.5 var(--mono); text-align: right; max-width: 260px; }
+    .engine-tag strong { color: var(--gold); font-weight: 500; }
+    .board-strip { display: grid; grid-template-columns: 1.15fr 1.15fr .8fr .8fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); margin-bottom: 22px; }
+    .board-stat { min-height: 78px; padding: 13px 15px; background: var(--panel); }
+    .board-stat span { display: block; color: var(--muted); font: 10px var(--mono); text-transform: uppercase; letter-spacing: 0; }
+    .board-stat strong { display: block; margin-top: 5px; font: 23px/1.1 var(--serif); font-weight: 400; }
+    .tracks { display: flex; gap: 5px; margin-top: 9px; }
+    .track-dot { width: 15px; height: 5px; background: #39453d; }
+    .track-dot.lit-l { background: var(--blue); }
+    .track-dot.lit-f { background: var(--red); }
+    .layout { display: grid; grid-template-columns: minmax(340px, .92fr) minmax(440px, 1.35fr); gap: 25px; align-items: start; }
+    .column { min-width: 0; }
+    .section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 0 0 12px; border-bottom: 1px solid var(--line); margin-bottom: 15px; }
+    .section-heading h2 { font: 21px/1.1 var(--serif); font-weight: 400; margin: 0; }
+    .section-heading .section-kicker { color: var(--muted); }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .field { min-width: 0; }
+    .field.full { grid-column: 1 / -1; }
+    label { display: block; color: var(--muted); font: 10px var(--mono); text-transform: uppercase; letter-spacing: 0; margin-bottom: 6px; }
+    input, select {
+      width: 100%; min-height: 39px; color: var(--ink); background: #111814; border: 1px solid var(--line);
+      border-radius: 2px; padding: 8px 10px; outline: none;
+    }
+    input:focus, select:focus, button:focus-visible { border-color: var(--green); outline: 2px solid #b7ee7830; outline-offset: 1px; }
+    select { cursor: pointer; }
+    option { background: var(--panel); }
+    .hint { margin: 6px 0 0; font-size: 11px; color: var(--dim); }
+    .divider { border: 0; border-top: 1px solid var(--line); margin: 19px 0; }
+    .decision-inputs { background: #131a15; border-left: 2px solid var(--green); padding: 15px; margin-top: 17px; }
+    .decision-inputs h3 { margin: 0 0 12px; font: 17px var(--serif); font-weight: 400; }
+    .primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 40px; padding: 9px 15px; border: 1px solid var(--green); color: #172012; background: var(--green); border-radius: 2px; cursor: pointer; font-weight: 650; }
+    .primary-action:hover { background: #c9f69a; }
+    .quiet-action { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 7px 11px; border: 1px solid var(--line); color: var(--muted); background: transparent; border-radius: 2px; cursor: pointer; }
+    .quiet-action:hover { color: var(--ink); border-color: var(--muted); }
+    .recommend-button { width: 100%; margin-top: 14px; }
+    .result { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 18px; }
+    .result-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .result-label { color: var(--green); font: 10px var(--mono); text-transform: uppercase; letter-spacing: 0; }
+    .result h3 { font: 27px/1.12 var(--serif); font-weight: 400; margin: 5px 0; }
+    .confidence { font: 12px var(--mono); color: var(--green); white-space: nowrap; }
+    .reason { margin: 9px 0 0; color: var(--muted); max-width: 640px; }
+    .choice-list { display: grid; gap: 7px; margin-top: 18px; }
+    .choice-row { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(70px, 1.3fr) 42px; gap: 10px; align-items: center; color: var(--muted); font-size: 12px; }
+    .choice-row.selected { color: var(--ink); }
+    .bar { height: 5px; background: #303b33; overflow: hidden; }
+    .bar > i { height: 100%; display: block; background: var(--blue); }
+    .choice-row.selected .bar > i { background: var(--green); }
+    .choice-row b { font: 11px var(--mono); text-align: right; }
+    .beliefs { margin-top: 23px; }
+    .beliefs-title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 9px; }
+    .beliefs-title h3 { margin: 0; font: 18px var(--serif); font-weight: 400; }
+    .beliefs-title span { color: var(--dim); font: 10px var(--mono); }
+    .table-wrap { overflow-x: auto; border-top: 1px solid var(--line); }
+    table { width: 100%; border-collapse: collapse; min-width: 380px; }
+    th { text-align: left; color: var(--dim); font: 10px var(--mono); text-transform: uppercase; letter-spacing: 0; padding: 9px 6px; }
+    td { padding: 9px 6px; border-top: 1px solid #273129; font-size: 12px; }
+    td:last-child, th:last-child { text-align: right; }
+    .player-name { color: var(--ink); }
+    .prob { font: 12px var(--mono); }
+    .prob.high { color: var(--red); }
+    .prob.low { color: var(--blue); }
+    .role-pill { color: var(--muted); font: 10px var(--mono); }
+    .log { margin-top: 26px; }
+    .log-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .log-head h3 { font: 18px var(--serif); font-weight: 400; margin: 0; }
+    .log-list { list-style: none; margin: 9px 0 0; padding: 0; }
+    .log-list li { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid #273129; color: var(--muted); font-size: 12px; }
+    .log-list .event-kind { color: var(--green); font: 10px var(--mono); min-width: 84px; padding-top: 2px; text-transform: uppercase; }
+    .remove-event { margin-left: auto; background: none; border: 0; color: var(--dim); cursor: pointer; padding: 0 4px; }
+    .remove-event:hover { color: var(--red); }
+    .empty-log { color: var(--dim); font-size: 12px; padding: 12px 0; border-top: 1px solid #273129; }
+    .log-form { display: grid; grid-template-columns: 1.2fr .8fr 1fr auto; gap: 7px; margin-top: 11px; align-items: end; }
+    .log-form .field label { font-size: 9px; }
+    .log-form input, .log-form select { min-height: 34px; padding: 6px 8px; font-size: 12px; }
+    .log-form .quiet-action { min-height: 34px; font-size: 12px; }
+    .method { margin-top: 19px; padding: 11px 12px; border: 1px solid var(--line); color: var(--dim); font-size: 11px; }
+    .method strong { color: var(--gold); font-weight: 500; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: minmax(0, 1fr); }
+      .column { max-width: 760px; width: 100%; margin: auto; }
+      .board-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    }
+    @media (max-width: 600px) {
+      .shell { padding: 20px 14px 36px; }
+      header { align-items: flex-start; flex-direction: column; gap: 12px; padding-bottom: 17px; }
+      h1 { font-size: 30px; }
+      .engine-tag { text-align: left; max-width: none; }
+      .board-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .board-stat:last-child { grid-column: 1 / -1; }
+      .board-stat { min-height: 69px; padding: 11px; }
+      .board-stat strong { font-size: 20px; }
+      .form-grid { gap: 10px; }
+      .log-form { grid-template-columns: 1fr 1fr; }
+      .log-form .field:first-child { grid-column: 1 / -1; }
+      .log-form .quiet-action { width: 100%; }
+      .choice-row { grid-template-columns: minmax(95px, 1fr) minmax(60px, 1.1fr) 38px; gap: 7px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div>
+        <div class="eyebrow">Table-side decision support</div>
+        <h1>Bayesian CFR Advisor</h1>
+        <p class="subtitle">Track the table. Weigh hidden roles. Get a move recommendation for the decision in front of you.</p>
+      </div>
+      <div class="engine-tag"><strong>STANDARD RULESET</strong><br>5-10 players &middot; private, local state</div>
+    </header>
+
+    <section class="board-strip" aria-label="Current game board">
+      <div class="board-stat"><span>Election</span><strong id="board-election">Round 1</strong></div>
+      <div class="board-stat"><span>Turn</span><strong id="board-turn">Nomination</strong></div>
+      <div class="board-stat"><span>Liberal</span><strong id="board-liberal">0 / 5</strong><div class="tracks" id="lib-track"></div></div>
+      <div class="board-stat"><span>Fascist</span><strong id="board-fascist">0 / 6</strong><div class="tracks" id="fas-track"></div></div>
+      <div class="board-stat"><span>Election tracker</span><strong id="board-tracker">0 / 3</strong><div class="tracks" id="tracker-track"></div></div>
+    </section>
+
+    <div class="layout">
+      <section class="column" aria-labelledby="state-title">
+        <div class="section-heading"><h2 id="state-title">Game state</h2><span class="section-kicker">01 / setup</span></div>
+        <div class="form-grid">
+          <div class="field"><label for="players">Players</label><select id="players"><option>5</option><option>6</option><option selected>7</option><option>8</option><option>9</option><option>10</option></select></div>
+          <div class="field"><label for="you">Your seat</label><select id="you"></select></div>
+          <div class="field"><label for="role">Your role</label><select id="role"><option value="Liberal">Liberal</option><option value="Fascist">Fascist</option><option value="Hitler">Hitler</option></select></div>
+          <div class="field"><label for="phase">Decision phase</label><select id="phase"><option value="nomination">Nominate chancellor</option><option value="vote">Vote on government</option><option value="legislative">Legislative session</option><option value="veto">Veto decision</option><option value="power">Executive power</option></select></div>
+          <div class="field"><label for="president">Current president</label><select id="president"></select></div>
+          <div class="field"><label for="chancellor">Nominated chancellor</label><select id="chancellor"></select></div>
+          <div class="field"><label for="libPolicies">Liberal policies</label><input id="libPolicies" type="number" min="0" max="5" value="0"></div>
+          <div class="field"><label for="fasPolicies">Fascist policies</label><input id="fasPolicies" type="number" min="0" max="6" value="0"></div>
+          <div class="field"><label for="tracker">Election tracker</label><input id="tracker" type="number" min="0" max="2" value="0"></div>
+          <div class="field"><label for="lastChancellor">Last elected chancellor</label><select id="lastChancellor"></select></div>
+          <div class="field full"><label for="knownFascists">Known fascist seats (comma-separated)</label><input id="knownFascists" placeholder="e.g. 2, 5"><p class="hint" id="role-hint">Enter only roles you know with certainty. In 5-6 player games, fascists know Hitler.</p></div>
+                  <div class="field full"><label for="knownHitler">Known Hitler seat (5-6 player fascist only)</label><select id="knownHitler"></select></div>
+        </div>
+
+        <div class="decision-inputs">
+          <h3 id="decision-title">Current decision</h3>
+          <div id="phase-fields" class="form-grid"></div>
+          <button type="button" class="primary-action recommend-button" id="recommend">Find best move <span aria-hidden="true">&#8594;</span></button>
+        </div>
+
+        <div class="log">
+          <div class="log-head"><h3>Public action log</h3><button class="quiet-action" id="clear-log" type="button">Clear log</button></div>
+          <div class="log-form">
+            <div class="field"><label for="eventType">Evidence</label><select id="eventType"><option value="fascist-policy">Fascist policy enacted</option><option value="liberal-policy">Liberal policy enacted</option><option value="voted-failed">Voted yes on failed government</option><option value="rejected-failed">Voted no on failed government</option><option value="investigated-f">Investigation: fascist</option><option value="investigated-l">Investigation: liberal</option><option value="election-trust">Trusted government passed</option></select></div>
+            <div class="field"><label for="eventSeat">Seat</label><select id="eventSeat"></select></div>
+            <div class="field"><label for="eventOther">Other seat</label><select id="eventOther"></select></div>
+            <button type="button" class="quiet-action" id="add-event">Add</button>
+          </div>
+          <ul class="log-list" id="log-list"></ul>
+        </div>
+      </section>
+
+      <section class="column" aria-labelledby="advice-title">
+        <div class="section-heading"><h2 id="advice-title">Decision analysis</h2><span class="section-kicker">02 / recommendation</span></div>
+        <div class="result" aria-live="polite" id="result">
+          <div class="result-top"><div><div class="result-label">Ready when you are</div><h3>Set the table, then find your move.</h3></div></div>
+          <p class="reason">Recommendations update from your role, the board, and observed actions. Enter the current decision details for legal, relevant options.</p>
+        </div>
+        <div class="beliefs">
+          <div class="beliefs-title"><h3>Hidden-role estimates</h3><span>POSTERIOR P(FASCIST)</span></div>
+          <div class="table-wrap"><table><thead><tr><th>Seat</th><th>Inference</th><th>Fascist chance</th></tr></thead><tbody id="belief-rows"></tbody></table></div>
+        </div>
+        <div class="method"><strong>Model note:</strong> Role estimates enumerate valid standard role assignments and weight them by logged evidence. Recommendations use rule-based utilities with regret matching; this is a lightweight advisor, not a full-game equilibrium solver.</div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const state = { events: [], lastAdvice: null };
+    const playerCount = () => Number($("players").value);
+    const seat = (id) => Number($(id).value);
+    const playerName = (number) => `Player ${number}`;
+    const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+    function populateSeats() {
+      const count = playerCount();
+      const ids = ["you", "president", "chancellor", "lastChancellor", "eventSeat", "eventOther", "knownHitler"];
+      for (const id of ids) {
+        const select = $(id);
+        const previous = Number(select.value);
+        select.replaceChildren();
+        const first = document.createElement("option");
+        first.value = "0";
+        first.textContent = id === "lastChancellor" ? "None / first round" : "Select seat";
+        select.append(first);
+        for (let number = 1; number <= count; number++) {
+          const option = document.createElement("option");
+          option.value = String(number);
+          option.textContent = playerName(number);
+          select.append(option);
+        }
+        if (previous <= count) select.value = String(previous);
+        else select.value = "0";
+      }
+      $("you").value = $("you").value === "0" ? "1" : $("you").value;
+      $("president").value = $("president").value === "0" ? "1" : $("president").value;
+      $("eventSeat").value = $("eventSeat").value === "0" ? "2" : $("eventSeat").value;
+      $("eventOther").value = $("eventOther").value === "0" ? "3" : $("eventOther").value;
+      renderPhaseFields();
+      renderAll();
+    }
+
+    function phaseField(label, id, options, hint = "") {
+      const wrapper = document.createElement("div");
+      wrapper.className = "field full";
+      const labelEl = document.createElement("label");
+      labelEl.htmlFor = id;
+      labelEl.textContent = label;
+      const select = document.createElement("select");
+      select.id = id;
+      for (const [value, text] of options) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = text;
+        select.append(option);
+      }
+      wrapper.append(labelEl, select);
+      if (hint) {
+        const helper = document.createElement("p");
+        helper.className = "hint";
+        helper.textContent = hint;
+        wrapper.append(helper);
+      }
+      return wrapper;
+    }
+
+    function renderPhaseFields() {
+      const container = $("phase-fields");
+      container.replaceChildren();
+      const phase = $("phase").value;
+      const count = playerCount();
+      if (phase === "nomination") {
+        const note = document.createElement("p");
+        note.className = "hint field full";
+        note.textContent = "The president cannot nominate themself or the previous elected chancellor.";
+        container.append(note);
+      } else if (phase === "vote") {
+        container.append(phaseField("Government members", "vote-team", [["both", "Both look trustworthy"], ["president", "President looks suspicious"], ["chancellor", "Chancellor looks suspicious"], ["neither", "Both look suspicious"]]));
+      } else if (phase === "legislative") {
+        container.append(phaseField("Your office", "office", [["president", "President: discard 1 of 3"], ["chancellor", "Chancellor: enact 1 of 2"]]));
+        const cards = document.createElement("div");
+        cards.className = "field full";
+        cards.innerHTML = '<label for="hand">Policies in your hand</label><input id="hand" autocomplete="off" placeholder="F, L, F"><p class="hint">Enter the cards you can currently choose: 3 as president, 2 as chancellor. Use L for Liberal and F for Fascist.</p>';
+        container.append(cards);
+      } else if (phase === "veto") {
+        container.append(phaseField("Your office", "veto-office", [["president", "President: accept or veto"], ["chancellor", "Chancellor: accept or veto"]]));
+        container.append(phaseField("Other player's response", "veto-response", [["unknown", "Not known yet"], ["accept", "Will accept"], ["veto", "Will veto"]]));
+      } else {
+        container.append(phaseField("Power", "power-type", [["investigate", "Investigate loyalty"], ["execute", "Execution"], ["special", "Special election"]]));
+      }
+    }
+
+    function roleCounts() {
+      const count = playerCount();
+      const fascists = count <= 6 ? 1 : count <= 8 ? 2 : 3;
+      return { liberals: count - fascists - 1, fascists, hitler: 1 };
+    }
+
+    function parseKnownFascists() {
+      return new Set($("knownFascists").value.split(/[ ,;]+/).map(Number).filter((number) => number >= 1 && number <= playerCount()));
+    }
+
+    function roleEvidence() {
+      const scores = Array.from({ length: playerCount() + 1 }, () => 0);
+      const knownRoles = new Map();
+      const own = seat("you");
+      const role = $("role").value;
+      knownRoles.set(own, role);
+      const known = parseKnownFascists();
+      for (const number of known) if (number !== own) knownRoles.set(number, "Fascist");
+      const count = playerCount();
+      if (count <= 6 && role === "Fascist") {
+        const hitler = Number($("knownHitler").value);
+        if (hitler && hitler !== own && !known.has(hitler)) knownRoles.set(hitler, "Hitler");
+      }
+      if (role === "Hitler" && count <= 6) {
+        for (const number of known) knownRoles.set(number, "Fascist");
+      }
+      for (const event of state.events) {
+        if (event.type === "fascist-policy") {
+          scores[event.seat] += 1.05;
+          scores[event.other] += 1.05;
+        } else if (event.type === "liberal-policy") {
+          scores[event.seat] -= 0.62;
+          scores[event.other] -= 0.62;
+        } else if (event.type === "voted-failed") {
+          scores[event.seat] += 0.7;
+        } else if (event.type === "rejected-failed") {
+          scores[event.seat] -= 0.25;
+        } else if (event.type === "investigated-f") {
+          knownRoles.set(event.seat, "Fascist");
+        } else if (event.type === "investigated-l") {
+          knownRoles.set(event.seat, "Liberal");
+        } else if (event.type === "election-trust") {
+          scores[event.seat] -= 0.35;
+          scores[event.other] -= 0.35;
+        }
+      }
+      return { scores, knownRoles };
+    }
+
+    function enumerateBeliefs() {
+      const count = playerCount();
+      const own = seat("you");
+      const counts = roleCounts();
+      const { scores, knownRoles } = roleEvidence();
+      const playerList = Array.from({ length: count }, (_, index) => index + 1);
+      const unknown = playerList.filter((number) => !knownRoles.has(number));
+      const remainingFascists = counts.fascists - [...knownRoles.values()].filter((value) => value === "Fascist").length;
+      const remainingHitler = counts.hitler - [...knownRoles.values()].filter((value) => value === "Hitler").length;
+      const beliefs = Array.from({ length: count + 1 }, () => ({ fascist: 0, hitler: 0, liberal: 0 }));
+      let totalWeight = 0;
+      const assignment = new Map(knownRoles);
+      const logWeight = (members, hitlerSeat) => {
+        let total = 0;
+        for (const number of members) total += scores[number];
+        if (hitlerSeat) total += scores[hitlerSeat] * 0.12;
+        return total;
+      };
+      const visit = (index, chosen) => {
+        if (chosen.length > remainingFascists) return;
+        if (index === unknown.length) {
+          if (chosen.length !== remainingFascists || remainingHitler !== 1) return;
+          const fascistSeats = [...assignment.entries()].filter(([, value]) => value === "Fascist").map(([number]) => number).concat(chosen);
+          const possibleHitlers = unknown.filter((number) => !chosen.includes(number));
+          for (const number of possibleHitlers) {
+            const weight = Math.exp(clamp(logWeight(fascistSeats, number), -20, 20));
+            totalWeight += weight;
+            for (const member of fascistSeats) beliefs[member].fascist += weight;
+            beliefs[number].fascist += weight;
+            beliefs[number].hitler += weight;
+          }
+          return;
+        }
+        visit(index + 1, chosen);
+        if (chosen.length < remainingFascists) visit(index + 1, [...chosen, unknown[index]]);
+      };
+      if (remainingFascists >= 0 && remainingFascists <= unknown.length && remainingHitler === 1) visit(0, []);
+      if (!totalWeight) {
+        const available = unknown.length || 1;
+        for (const number of unknown) beliefs[number].fascist = counts.fascists / available;
+        totalWeight = 1;
+      }
+      for (const number of playerList) {
+        if (knownRoles.has(number)) {
+          const known = knownRoles.get(number);
+          beliefs[number].fascist = known === "Liberal" ? 0 : 1;
+          beliefs[number].hitler = known === "Hitler" ? 1 : 0;
+        } else {
+          beliefs[number].fascist /= totalWeight;
+          beliefs[number].hitler /= totalWeight;
+        }
+        beliefs[number].liberal = 1 - beliefs[number].fascist;
+      }
+      return { beliefs, knownRoles, scores };
+    }
+
+    function regretMatch(choices) {
+      const baseline = choices.reduce((sum, choice) => sum + choice.value, 0) / choices.length;
+      const regrets = choices.map((choice) => Math.max(0, choice.value - baseline));
+      const regretTotal = regrets.reduce((sum, value) => sum + value, 0);
+      if (!regretTotal) return choices.map(() => 1 / choices.length);
+      return regrets.map((value) => value / regretTotal);
+    }
+
+    function recommendation() {
+      const { beliefs, knownRoles } = enumerateBeliefs();
+      const ownRole = $("role").value;
+      const ownTeam = ownRole === "Liberal" ? -1 : 1;
+      const fasPolicies = Number($("fasPolicies").value);
+      const tracker = Number($("tracker").value);
+      const president = seat("president");
+      const chancellor = seat("chancellor");
+      const phase = $("phase").value;
+      const choices = [];
+      const addChoice = (name, value, reason) => choices.push({ name, value, reason });
+      const suspicion = (number) => beliefs[number]?.fascist ?? 0.5;
+      if (phase === "nomination") {
+        for (let number = 1; number <= playerCount(); number++) {
+          if (number === seat("you") || number === seat("lastChancellor")) continue;
+          const h = beliefs[number]?.hitler ?? 0;
+          const f = suspicion(number);
+          let value = ownTeam < 0 ? -(f * 9 + h * (fasPolicies >= 3 ? 100 : 1)) : f * 9 + h * (fasPolicies >= 3 ? 100 : 1);
+          if (ownTeam > 0 && f > 0.5) value += 1.5;
+          addChoice(playerName(number), value, `${Math.round(f * 100)}% estimated fascist; ${Math.round(h * 100)}% estimated Hitler.`);
+        }
+        choices.sort((a, b) => ownTeam < 0 ? b.value - a.value : b.value - a.value);
+        const best = choices[0];
+        return { choices, best, reason: ownTeam < 0 ? `As a liberal, favor the lowest-risk eligible candidate. ${best.reason}` : `As a fascist, favor a teammate or a high-risk candidate. ${best.reason}` };
+      }
+      if (phase === "vote") {
+        const team = $("vote-team").value;
+        const teamSeats = team === "both" ? [president, chancellor] : team === "president" ? [president] : team === "chancellor" ? [chancellor] : [];
+        const teamRisk = teamSeats.reduce((sum, number) => sum + suspicion(number), 0);
+        let yesValue = ownTeam < 0 ? 1.5 - teamRisk * 4 : 1 + teamRisk * 2;
+        if (tracker === 2) yesValue += ownTeam < 0 ? 3 : 2;
+        addChoice("Vote Ja", yesValue, `Team fascist-risk estimate: ${Math.round(teamRisk / Math.max(1, teamSeats.length) * 100)}%.`);
+        addChoice("Vote Nein", -yesValue, "Rejecting a government raises the election tracker if the vote fails.");
+      } else if (phase === "legislative") {
+        const hand = $("hand").value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F");
+        const expected = $("office").value === "president" ? 3 : 2;
+        if (hand.length !== expected) return { error: `Enter exactly ${expected} policy cards, using L and F (for example: F, L${expected === 3 ? ", F" : ""}).`, beliefs, knownRoles };
+        for (let index = 0; index < hand.length; index++) {
+          const card = hand[index];
+          const move = $("office").value === "president" ? `Discard ${card === "L" ? "Liberal" : "Fascist"}` : `Enact ${card === "L" ? "Liberal" : "Fascist"}`;
+          let value = ownTeam * (card === "L" ? -1 : 1);
+                    if ($("office").value === "president") value *= -1;
+          if (card === "F" && fasPolicies >= 4) value += ownTeam > 0 ? 2 : -2;
+          addChoice(`${move} (card ${index + 1})`, value, `${card === "L" ? "Liberal" : "Fascist"} policy value from your role and board.`);
+        }
+      } else if (phase === "veto") {
+        const response = $("veto-response").value;
+        const mayVeto = fasPolicies >= 5;
+        const accept = ownTeam < 0 ? (tracker === 2 ? 3 : -1) : (tracker === 2 ? 2 : 1);
+        const veto = ownTeam < 0 ? (mayVeto ? 1 : -4) : (mayVeto ? (tracker === 2 ? -2 : 2) : -4);
+        addChoice("Accept the policies", accept, "A veto is unavailable until five fascist policies have been enacted.");
+        addChoice("Veto", veto, mayVeto ? "An approved veto advances the election tracker; both players must agree." : "Veto power is not yet unlocked.");
+        if (response !== "unknown") {
+          for (const choice of choices) if (choice.name === "Veto" && response !== "veto") choice.value = -100;
+        }
+      } else {
+        const type = $("power-type").value;
+        if (type === "special") {
+          for (let number = 1; number <= playerCount(); number++) {
+            const risk = suspicion(number);
+            addChoice(`Nominate ${playerName(number)}`, ownTeam < 0 ? -risk * 8 : risk * 8, `Estimated fascist chance: ${Math.round(risk * 100)}%.`);
+          }
+        } else {
+          for (let number = 1; number <= playerCount(); number++) {
+            if (number === seat("you")) continue;
+            if (number === target) continue;
+            const belief = beliefs[number];
+            const candidateValue = type === "execute"
+              ? ownTeam < 0 ? belief.hitler * 100 + belief.fascist * 9 : (1 - belief.fascist) * 7 - belief.hitler * 100
+              : ownTeam < 0 ? -belief.fascist * 6 : belief.fascist * 6;
+            addChoice(`${type === "execute" ? "Execute" : "Investigate"} ${playerName(number)}`, candidateValue,
+              `${Math.round(belief.hitler * 100)}% estimated Hitler; ${Math.round(belief.fascist * 100)}% estimated fascist.`);
+          }
+        }
+      }
+      if (!choices.length) return { error: "No legal choices. Check the current president, previous chancellor, and your seat.", beliefs, knownRoles };
+      choices.sort((a, b) => b.value - a.value);
+      const probabilities = regretMatch(choices);
+      choices.forEach((choice, index) => choice.probability = probabilities[index]);
+      const best = choices[0];
+      return { choices, best, reason: best.reason, beliefs, knownRoles };
+    }
+
+    function renderResult() {
+      const result = recommendation();
+      const container = $("result");
+      if (result.error) {
+        container.innerHTML = `<div class="result-label">Check decision inputs</div><h3>More information needed.</h3><p class="reason">${escapeHtml(result.error)}</p>`;
+        renderBeliefs(result.beliefs, result.knownRoles);
+        return;
+      }
+      const phaseName = $("phase").selectedOptions[0].textContent;
+      container.innerHTML = `<div class="result-top"><div><div class="result-label">Recommended / ${escapeHtml(phaseName)}</div><h3>${escapeHtml(result.best.name)}</h3></div><div class="confidence">${Math.round((result.best.probability ?? 0) * 100)}% regret share</div></div><p class="reason">${escapeHtml(result.reason)}</p><div class="choice-list">${result.choices.map((choice, index) => `<div class="choice-row ${index === 0 ? "selected" : ""}"><span>${escapeHtml(choice.name)}</span><div class="bar"><i style="width:${Math.round((choice.probability ?? 0) * 100)}%"></i></div><b>${Math.round((choice.probability ?? 0) * 100)}%</b></div>`).join("")}</div>`;
+      renderBeliefs(result.beliefs, result.knownRoles);
+    }
+
+    function renderBeliefs(beliefs, knownRoles) {
+      if (!beliefs) ({ beliefs, knownRoles } = enumerateBeliefs());
+      const tbody = $("belief-rows");
+      tbody.replaceChildren();
+      for (let number = 1; number <= playerCount(); number++) {
+        const tr = document.createElement("tr");
+        const role = knownRoles.get(number);
+        const risk = beliefs[number]?.fascist ?? 0;
+        const cells = [
+          `<span class="player-name">${playerName(number)}${number === seat("you") ? " (you)" : ""}</span>`,
+          `<span class="role-pill">${role ? `KNOWN ${escapeHtml(role.toUpperCase())}` : "UNRESOLVED"}</span>`,
+          `<span class="prob ${risk > .65 ? "high" : risk < .35 ? "low" : ""}">${Math.round(risk * 100)}%</span>`
+        ];
+        for (const content of cells) {
+          const td = document.createElement("td");
+          td.innerHTML = content;
+          tr.append(td);
+        }
+        tbody.append(tr);
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+    }
+
+    function updateBoard() {
+      const liberal = clamp(Number($("libPolicies").value) || 0, 0, 5);
+      const fascist = clamp(Number($("fasPolicies").value) || 0, 0, 6);
+      const tracker = clamp(Number($("tracker").value) || 0, 0, 2);
+      $("board-election").textContent = `Round ${state.events.filter((event) => event.type === "election-trust" || event.type === "voted-failed").length + 1}`;
+      $("board-turn").textContent = $("phase").selectedOptions[0]?.textContent.split(":")[0] ?? "Nomination";
+      $("board-liberal").textContent = `${liberal} / 5`;
+      $("board-fascist").textContent = `${fascist} / 6`;
+      $("board-tracker").textContent = `${tracker} / 3`;
+      $("lib-track").innerHTML = Array.from({ length: 5 }, (_, i) => `<i class="track-dot ${i < liberal ? "lit-l" : ""}"></i>`).join("");
+      $("fas-track").innerHTML = Array.from({ length: 6 }, (_, i) => `<i class="track-dot ${i < fascist ? "lit-f" : ""}"></i>`).join("");
+      $("tracker-track").innerHTML = Array.from({ length: 3 }, (_, i) => `<i class="track-dot ${i < tracker ? "lit-f" : ""}"></i>`).join("");
+      $("role-hint").textContent = playerCount() <= 6
+        ? "Enter only roles you know with certainty. Fascists know Hitler in 5-6 player games."
+        : "Enter only roles you know with certainty. Fascists know Hitler; Hitler does not know the fascists.";
+    }
+
+    function renderLog() {
+      const list = $("log-list");
+      list.replaceChildren();
+      if (!state.events.length) {
+        const empty = document.createElement("li");
+        empty.className = "empty-log";
+        empty.textContent = "No evidence logged yet. Add public actions or investigation results to update role estimates.";
+        list.append(empty);
+        return;
+      }
+      for (const event of state.events) {
+        const li = document.createElement("li");
+        const kind = document.createElement("span");
+        kind.className = "event-kind";
+        kind.textContent = event.label;
+        const detail = document.createElement("span");
+        detail.textContent = `${playerName(event.seat)}${event.other ? ` + ${playerName(event.other)}` : ""}`;
+        const remove = document.createElement("button");
+        remove.className = "remove-event";
+        remove.type = "button";
+        remove.setAttribute("aria-label", "Remove evidence");
+        remove.textContent = "×";
+        remove.addEventListener("click", () => {
+          state.events = state.events.filter((item) => item.id !== event.id);
+          renderAll();
+        });
+        li.append(kind, detail, remove);
+        list.append(li);
+      }
+    }
+
+    function renderAll() {
+      updateBoard();
+      renderLog();
+      renderResult();
+    }
+
+    $("players").addEventListener("change", populateSeats);
+    $("phase").addEventListener("change", () => { renderPhaseFields(); renderAll(); });
+    for (const id of ["you", "role", "president", "chancellor", "lastChancellor", "knownFascists", "knownHitler", "libPolicies", "fasPolicies", "tracker"]) {
+      $(id).addEventListener("input", renderAll);
+      $(id).addEventListener("change", renderAll);
+    }
+    $("recommend").addEventListener("click", renderResult);
+    $("add-event").addEventListener("click", () => {
+      const type = $("eventType").value;
+      const seatNumber = Number($("eventSeat").value);
+      const other = Number($("eventOther").value);
+      const labels = {
+        "fascist-policy": "F policy", "liberal-policy": "L policy", "voted-failed": "Yes / failed",
+        "rejected-failed": "No / failed", "investigated-f": "Saw fascist", "investigated-l": "Saw liberal", "election-trust": "Passed gov't"
+      };
+      state.events.push({ id: crypto.randomUUID(), type, seat: seatNumber, other: type.includes("policy") || type === "election-trust" ? other : 0, label: labels[type] });
+      renderAll();
+    });
+    $("clear-log").addEventListener("click", () => { state.events = []; renderAll(); });
+
+    populateSeats();
+  </script>
+</body>
+</html>
