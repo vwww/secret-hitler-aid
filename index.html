@@ -464,6 +464,11 @@
       if (!knowsFascists) {
         $("knownFascists").value = "";
       }
+      const selected = parseKnownFascists();
+      if (isHitler) {
+        selected.delete(seat("you"));
+        $("knownFascists").value = [...selected].sort((a, b) => a - b).join(",");
+      }
       if (isLiberal) {
         $("knownHitler").value = "0";
       } else if (isHitler) {
@@ -472,8 +477,8 @@
 
       const picker = $("knownFascistsPicker");
       picker.replaceChildren();
-      const selected = parseKnownFascists();
       for (let number = 1; number <= playerCount(); number++) {
+        if (isHitler && number === seat("you")) continue;
         const button = document.createElement("button");
         button.type = "button";
         button.className = "seat-chip" + (selected.has(number) ? " is-selected" : "");
@@ -1308,6 +1313,14 @@
     $("players").addEventListener("change", populateSeats);
     $("phase").addEventListener("change", () => { renderPhaseFields(); renderAll(); });
     $("role").addEventListener("change", () => { renderRoleFields(); renderAll(); });
+    $("knownHitler").addEventListener("change", () => {
+      if ($("role").value !== "Fascist") return;
+      const hitlerSeat = Number($("knownHitler").value);
+      if (!hitlerSeat) return;
+      const knownFascists = parseKnownFascists();
+      knownFascists.add(hitlerSeat);
+      $("knownFascists").value = [...knownFascists].sort((a, b) => a - b).join(",");
+    });
     for (const id of ["you", "president", "chancellor", "lastChancellor", "knownHitler", "libPolicies", "fasPolicies", "tracker"]) {
       $(id).addEventListener("input", renderAll);
       $(id).addEventListener("change", renderAll);
