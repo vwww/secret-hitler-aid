@@ -990,8 +990,16 @@
       const game = state.game;
       const tracker = Number($("tracker").value) + 1;
       $("tracker").value = String(tracker);
-      if (tracker >= 3) game.stage = "top-policy";
-      else nextPresident();
+      if (tracker >= 3) {
+        resetTermLimits();
+        game.stage = "top-policy";
+      } else nextPresident();
+    }
+
+    function resetTermLimits() {
+      state.game.lastPresident = 0;
+      state.game.lastChancellor = 0;
+      $("lastChancellor").value = "0";
     }
 
     function requireWorkflowValue(id, message) {
@@ -1116,7 +1124,10 @@
           game.pendingPolicy = "";
           const tracker = Number($("tracker").value) + 1;
           $("tracker").value = String(tracker);
-          if (tracker >= 3) game.stage = "top-policy";
+          if (tracker >= 3) {
+            resetTermLimits();
+            game.stage = "top-policy";
+          }
           else nextPresident();
         } else {
           game.vetoDenied = true;
