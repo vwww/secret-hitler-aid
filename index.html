@@ -79,8 +79,10 @@
     .quiet-action { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 7px 11px; border: 1px solid var(--line); color: var(--muted); background: transparent; border-radius: 2px; cursor: pointer; }
     .quiet-action:hover { color: var(--ink); border-color: var(--muted); }
     .recommend-button { width: 100%; margin-top: 14px; }
-    .choice-button-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    .choice-button { min-height: 42px; border: 1px solid var(--line); background: #111814; color: var(--ink); border-radius: 2px; cursor: pointer; font-weight: 600; }
+    .choice-button-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); gap: 8px; }
+    .select-button-group { grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); }
+    .choice-button { min-width: 0; min-height: 46px; padding: 7px; border: 1px solid var(--line); background: #111814; color: var(--ink); border-radius: 2px; cursor: pointer; font-weight: 600; line-height: 1.2; }
+    .choice-button:disabled { opacity: .4; cursor: not-allowed; }
     .choice-button.is-selected { background: rgba(183, 238, 120, 0.12); border-color: var(--green); color: var(--green); }
     .advance-game:disabled { opacity: 0.45; cursor: not-allowed; }
     .result { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 18px; }
@@ -221,19 +223,20 @@
         <div class="section-heading"><h2 id="state-title">State tracker</h2><span class="section-kicker">01 / setup</span></div>
         <div id="setup-fields">
         <div class="form-grid">
-          <div class="field"><label for="players">Players</label><select id="players"><option>5</option><option>6</option><option selected>7</option><option>8</option><option>9</option><option>10</option></select></div>
-          <div class="field"><label for="you">Your seat</label><select id="you"></select></div>
-          <div class="field"><label for="role">Your role</label><select id="role"><option value="Liberal">Liberal</option><option value="Fascist">Fascist</option><option value="Hitler">Hitler</option></select></div>
+          <div class="field"><label id="players-label">Players</label><select class="sr-only" id="players" aria-hidden="true" tabindex="-1"><option>5</option><option>6</option><option selected>7</option><option>8</option><option>9</option><option>10</option></select><div class="choice-button-group select-button-group" id="players-buttons" role="group" aria-labelledby="players-label"></div></div>
+          <div class="field"><label id="you-label">Your seat</label><select class="sr-only" id="you" aria-hidden="true" tabindex="-1"></select><div class="choice-button-group select-button-group" id="you-buttons" role="group" aria-labelledby="you-label"></div></div>
+          <div class="field"><label id="role-label">Your role</label><select class="sr-only" id="role" aria-hidden="true" tabindex="-1"><option value="Liberal">Liberal</option><option value="Fascist">Fascist</option><option value="Hitler">Hitler</option></select><div class="choice-button-group select-button-group" id="role-buttons" role="group" aria-labelledby="role-label"></div></div>
           <div class="field" hidden><label for="phase">Decision phase</label><select id="phase"><option value="nomination">Nominate chancellor</option><option value="vote">Vote on government</option><option value="legislative">Legislative session</option><option value="veto">Veto decision</option><option value="power">Executive power</option></select></div>
-          <div class="field"><label for="president">Starting president</label><select id="president"></select></div>
+          <div class="field"><label id="president-label">Starting president</label><select class="sr-only" id="president" aria-hidden="true" tabindex="-1"></select><div class="choice-button-group select-button-group" id="president-buttons" role="group" aria-labelledby="president-label"></div></div>
           <div class="field" hidden><label for="chancellor">Nominated chancellor</label><select id="chancellor"></select></div>
           <div class="field" hidden><label for="libPolicies">Liberal policies</label><input id="libPolicies" type="number" min="0" max="5" value="0"></div>
           <div class="field" hidden><label for="fasPolicies">Fascist policies</label><input id="fasPolicies" type="number" min="0" max="6" value="0"></div>
           <div class="field" hidden><label for="tracker">Election tracker</label><input id="tracker" type="number" min="0" max="3" value="0"></div>
           <div class="field" hidden><label for="lastChancellor">Last elected chancellor</label><select id="lastChancellor"></select></div>
           <div class="field full hidden-role-field" id="knownHitlerField">
-            <label for="knownHitler">Known Hitler seat</label>
-            <select id="knownHitler"></select>
+            <label id="knownHitler-label">Known Hitler seat</label>
+            <select class="sr-only" id="knownHitler" aria-hidden="true" tabindex="-1"></select>
+            <div class="choice-button-group select-button-group" id="knownHitler-buttons" role="group" aria-labelledby="knownHitler-label"></div>
           </div>
           <div class="field full hidden-role-field" id="knownFascistsField">
             <label id="knownFascistsLabel" for="knownFascists">Known fascist seats</label>
@@ -275,8 +278,8 @@
           <div class="log-head"><h3>Public action log</h3><button class="quiet-action" id="clear-log" type="button">Clear log</button></div>
           <div class="log-form">
             <div class="field"><label for="eventType">Evidence</label><select id="eventType"><option value="fascist-policy">Fascist policy enacted</option><option value="liberal-policy">Liberal policy enacted</option><option value="voted-failed">Voted yes on failed government</option><option value="rejected-failed">Voted no on failed government</option><option value="investigated-f">Investigation: fascist</option><option value="investigated-l">Investigation: liberal</option><option value="election-trust">Trusted government passed</option></select></div>
-            <div class="field"><label for="eventSeat">Seat</label><select id="eventSeat"></select></div>
-            <div class="field"><label for="eventOther">Other seat</label><select id="eventOther"></select></div>
+            <div class="field"><label id="eventSeat-label">Seat</label><select class="sr-only" id="eventSeat" aria-hidden="true" tabindex="-1"></select><div class="choice-button-group select-button-group" id="eventSeat-buttons" role="group" aria-labelledby="eventSeat-label"></div></div>
+            <div class="field"><label id="eventOther-label">Other seat</label><select class="sr-only" id="eventOther" aria-hidden="true" tabindex="-1"></select><div class="choice-button-group select-button-group" id="eventOther-buttons" role="group" aria-labelledby="eventOther-label"></div></div>
             <button type="button" class="quiet-action" id="add-event">Add</button>
           </div>
           <ul class="log-list" id="log-list"></ul>
@@ -364,6 +367,34 @@
       renderAll();
     }
 
+    function renderSelectButtonGroup(selectId) {
+      const select = $(selectId);
+      const group = $(`${selectId}-buttons`);
+      if (!select || !group) return;
+      group.replaceChildren();
+      for (const option of select.options) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "choice-button" + (option.value === select.value ? " is-selected" : "");
+        button.textContent = option.textContent;
+        button.dataset.value = option.value;
+        button.setAttribute("aria-pressed", String(option.value === select.value));
+        button.disabled = select.disabled || option.disabled;
+        button.addEventListener("click", () => {
+          select.value = option.value;
+          renderSelectButtonGroup(selectId);
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        group.append(button);
+      }
+    }
+
+    function refreshSelectButtonGroups() {
+      for (const id of ["players", "you", "role", "president", "knownHitler", "eventSeat", "eventOther"]) {
+        renderSelectButtonGroup(id);
+      }
+    }
+
     function renderPlayerNameFields() {
       const container = $("player-name-fields");
       container.replaceChildren();
@@ -394,23 +425,11 @@
           if (number > 0) option.textContent = playerName(number);
         }
       }
+      refreshSelectButtonGroups();
     }
 
     function phaseField(label, id, options, hint = "") {
-      const wrapper = document.createElement("div");
-      wrapper.className = "field full";
-      const labelEl = document.createElement("label");
-      labelEl.htmlFor = id;
-      labelEl.textContent = label;
-      const select = document.createElement("select");
-      select.id = id;
-      for (const [value, text] of options) {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = text;
-        select.append(option);
-      }
-      wrapper.append(labelEl, select);
+      const wrapper = choiceButtonGroup(label, id, options, options[0]?.[0] ?? "");
       if (hint) {
         const helper = document.createElement("p");
         helper.className = "hint";
@@ -424,6 +443,11 @@
       const container = $("phase-fields");
       const currentHand = $("hand")?.value ?? "";
       const currentOffice = $("office")?.value;
+      const currentOfficeDisabled = $("office")?.disabled ?? false;
+      const currentVetoOffice = $("veto-office")?.value;
+      const currentVetoOfficeDisabled = $("veto-office")?.disabled ?? false;
+      const currentVetoResponse = $("veto-response")?.value;
+      const currentVetoResponseDisabled = $("veto-response")?.disabled ?? false;
       const currentPower = $("power-type")?.value;
       const currentPowerDisabled = $("power-type")?.disabled ?? false;
       container.replaceChildren();
@@ -445,18 +469,17 @@
         cards.className = "field full";
         cards.innerHTML = '<label>Policies in your hand</label><div id="hand-picker" class="card-picker"></div><input id="hand" type="hidden" value=""><p class="hint">Tap L or F for each card: 3 as president, 2 as chancellor.</p>';
         container.append(cards);
-        if (currentOffice) $("office").value = currentOffice;
+        if (currentOffice) setChoiceButtonValue("office", currentOffice, currentOfficeDisabled);
         $("hand").value = currentHand;
         renderHandPicker();
       } else if (phase === "veto") {
         container.append(phaseField("Your office", "veto-office", [["president", "President: accept or veto"], ["chancellor", "Chancellor: accept or veto"]]));
         container.append(phaseField("Other player's response", "veto-response", [["unknown", "Not known yet"], ["accept", "Will accept"], ["veto", "Will veto"]]));
+        if (currentVetoOffice) setChoiceButtonValue("veto-office", currentVetoOffice, currentVetoOfficeDisabled);
+        if (currentVetoResponse) setChoiceButtonValue("veto-response", currentVetoResponse, currentVetoResponseDisabled);
       } else {
         container.append(phaseField("Power", "power-type", [["investigate", "Investigate loyalty"], ["execute", "Execution"], ["special", "Special election"]]));
-        if (currentPower) {
-          $("power-type").value = currentPower;
-          $("power-type").disabled = currentPowerDisabled;
-        }
+        if (currentPower) setChoiceButtonValue("power-type", currentPower, currentPowerDisabled);
       }
     }
 
@@ -572,6 +595,7 @@
         : playerCount() <= 6
           ? "Enter only roles you know with certainty. Fascists know Hitler in 5-6 player games."
           : "Enter only roles you know with certainty. Fascists know Hitler; Hitler does not know the fascists.";
+      refreshSelectButtonGroups();
     }
 
     function parseKnownFascists() {
@@ -701,30 +725,10 @@
     }
 
     function workflowSelect(label, id, options, placeholder = "Select what happened") {
-      const wrapper = document.createElement("div");
-      wrapper.className = "field full";
-      const labelElement = document.createElement("label");
-      labelElement.htmlFor = id;
-      labelElement.textContent = label;
-      const select = document.createElement("select");
-      select.id = id;
-      if (placeholder) {
-        const prompt = document.createElement("option");
-        prompt.value = "";
-        prompt.textContent = placeholder;
-        select.append(prompt);
-      }
-      for (const [value, text] of options) {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = text;
-        select.append(option);
-      }
-      wrapper.append(labelElement, select);
-      return wrapper;
+      return choiceButtonGroup(label, id, options, "");
     }
 
-    function choiceButtonGroup(label, id, options) {
+    function choiceButtonGroup(label, id, options, selectedValue = "") {
       const wrapper = document.createElement("div");
       wrapper.className = "field full";
       const labelElement = document.createElement("label");
@@ -732,25 +736,45 @@
       labelElement.textContent = label;
       const group = document.createElement("div");
       group.className = "choice-button-group";
+      group.setAttribute("role", "group");
+      group.setAttribute("aria-label", label);
       const input = document.createElement("input");
       input.type = "hidden";
       input.id = id;
-      input.value = "";
+      input.value = String(selectedValue);
       options.forEach(([value, text]) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = "choice-button";
+        button.className = "choice-button" + (String(value) === String(selectedValue) ? " is-selected" : "");
         button.dataset.value = value;
         button.textContent = text;
+        button.setAttribute("aria-pressed", String(String(value) === String(selectedValue)));
         button.addEventListener("click", () => {
           input.value = value;
-          group.querySelectorAll(".choice-button").forEach((choice) => choice.classList.toggle("is-selected", choice.dataset.value === value));
-          updateAdvanceButtonState();
+          group.querySelectorAll(".choice-button").forEach((choice) => {
+            const isSelected = choice.dataset.value === value;
+            choice.classList.toggle("is-selected", isSelected);
+            choice.setAttribute("aria-pressed", String(isSelected));
+          });
+          input.dispatchEvent(new Event("change", { bubbles: true }));
         });
         group.append(button);
       });
       wrapper.append(labelElement, group, input);
       return wrapper;
+    }
+
+    function setChoiceButtonValue(id, value, disabled = false) {
+      const input = $(id);
+      if (!input) return;
+      input.value = String(value);
+      input.disabled = disabled;
+      input.closest(".field")?.querySelectorAll(".choice-button").forEach((button) => {
+        const isSelected = button.dataset.value === String(value);
+        button.classList.toggle("is-selected", isSelected);
+        button.setAttribute("aria-pressed", String(isSelected));
+        button.disabled = disabled;
+      });
     }
 
     function updateAdvanceButtonState() {
@@ -1022,7 +1046,8 @@
       const field = $(id);
       $("workflow-error").textContent = message;
       $("workflow-error").hidden = false;
-      field?.focus();
+      const focusTarget = field?.type === "hidden" ? field.closest(".field")?.querySelector(".choice-button") : field;
+      focusTarget?.focus();
       return false;
     }
 
