@@ -77,6 +77,10 @@
     .quiet-action { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 7px 11px; border: 1px solid var(--line); color: var(--muted); background: transparent; border-radius: 2px; cursor: pointer; }
     .quiet-action:hover { color: var(--ink); border-color: var(--muted); }
     .recommend-button { width: 100%; margin-top: 14px; }
+    .choice-button-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .choice-button { min-height: 42px; border: 1px solid var(--line); background: #111814; color: var(--ink); border-radius: 2px; cursor: pointer; font-weight: 600; }
+    .choice-button.is-selected { background: rgba(183, 238, 120, 0.12); border-color: var(--green); color: var(--green); }
+    .advance-game:disabled { opacity: 0.45; cursor: not-allowed; }
     .result { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 18px; }
     .result-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
     .result-label { color: var(--green); font: 10px var(--mono); text-transform: uppercase; letter-spacing: 0; }
@@ -616,6 +620,62 @@
       return wrapper;
     }
 
+    function choiceButtonGroup(label, id, options) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "field full";
+      const labelElement = document.createElement("label");
+      labelElement.htmlFor = id;
+      labelElement.textContent = label;
+      const group = document.createElement("div");
+      group.className = "choice-button-group";
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.id = id;
+      input.value = "";
+      options.forEach(([value, text]) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "choice-button";
+        button.dataset.value = value;
+        button.textContent = text;
+        button.addEventListener("click", () => {
+          input.value = value;
+          group.querySelectorAll(".choice-button").forEach((choice) => choice.classList.toggle("is-selected", choice.dataset.value === value));
+          updateAdvanceButtonState();
+        });
+        group.append(button);
+      });
+      wrapper.append(labelElement, group, input);
+      return wrapper;
+    }
+
+    function updateAdvanceButtonState() {
+      const button = $("advance-game");
+      if (!button || !state.game.active) return;
+      const stage = state.game.stage;
+      let disabled = false;
+      if (stage === "nomination") disabled = !$("actual-chancellor")?.value;
+      else if (stage === "vote") {
+        const result = $("actual-vote-result")?.value;
+        disabled = !result || (result === "failed" && !$("actual-own-vote")?.value) || (result === "passed" && Number($("fasPolicies").value) >= 3 && !$("hitler-election")?.value);
+      } else if (stage === "president-discard") {
+        disabled = !$("actual-discard")?.value;
+      } else if (stage === "chancellor-policy") {
+        const outcome = $("actual-policy")?.value;
+        disabled = !outcome;
+      } else if (stage === "policy-result") {
+        disabled = !$("actual-policy")?.value;
+      } else if (stage === "veto-result") {
+        disabled = !$("actual-veto-result")?.value;
+      } else if (stage === "top-policy") {
+        disabled = !$("top-policy-result")?.value;
+      } else if (stage === "power") {
+        disabled = !$("power-result-target")?.value || (state.game.pendingPower === "investigate" && !$("power-result-party")?.value) || (state.game.pendingPower === "execute" && !$("power-result-game")?.value);
+      }
+      button.disabled = disabled;
+      button.setAttribute("aria-disabled", String(disabled));
+    }
+
     function livingSeats() {
       return Array.from({ length: playerCount() }, (_, index) => index + 1)
         .filter((number) => !state.game.eliminated.has(number));
@@ -719,6 +779,7 @@
       $("decision-inputs").hidden = !hasMove;
       $("workflow-fields").replaceChildren();
       $("advance-game").hidden = false;
+      $("advance-game").disabled = true;
       const options = livingSeats().map((number) => [String(number), playerName(number)]);
       const eligible = options.filter(([number]) => Number(number) !== game.president && Number(number) !== game.lastChancellor);
       const mayVeto = Number($("fasPolicies").value) >= 5 && !game.vetoDenied;
@@ -735,10 +796,7 @@
         $("workflow-step").textContent = "VOTE ON GOVERNMENT";
         $("workflow-title").textContent = `President ${game.president} + Chancellor ${game.chancellor}`;
         $("workflow-prompt").textContent = "Review the role estimates, cast your vote, then record the table result. If it fails, your vote is added to the evidence log.";
-        $("workflow-fields").append(
-          workflowSelect("Government passed?", "actual-vote-result", [["passed", "Yes, government elected"], ["failed", "No, government rejected"]]),
-          workflowSelect("Your vote (required if rejected)", "actual-own-vote", [["yes", "Ja"], ["no", "Nein"]])
-        );
+        $("workflow-fields").append(workflowSelect("Government passed?", "actual-vote-result", [["passed", "Yes, government elected"], ["failed", "No, government rejected"]]));
         if (Number($("fasPolicies").value) >= 3) {
           $("workflow-fields").append(workflowSelect("Did Hitler's election end the game?", "hitler-election", [["no", "No / not known to be Hitler"], ["yes", "Yes, Fascists win"]], "Select the game result"));
         }
@@ -748,16 +806,21 @@
         $("workflow-title").textContent = "Discard one policy";
         $("workflow-prompt").textContent = "Enter the three cards you received. Use the recommendation, discard one at the table, then record which card you discarded.";
         const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
-        const discardOptions = cards.map((card, index) => [String(index + 1), `Card ${index + 1} (${card})`]);
-        $("workflow-fields").append(workflowSelect("Card discarded", "actual-discard", discardOptions));
+        const types = [...new Set(cards)];
+        if (types.length > 1) {
+          $("workflow-fields").append(choiceButtonGroup("Card discarded", "actual-discard", [["liberal", "Discard Liberal"], ["fascist", "Discard Fascist"]]));
+        }
         $("advance-game").textContent = "Record discard and continue →";
       } else if (game.stage === "chancellor-policy") {
         $("workflow-step").textContent = "LEGISLATIVE SESSION / CHANCELLOR";
         $("workflow-title").textContent = "Choose the enacted policy";
         $("workflow-prompt").textContent = `Enter the two cards you received. Follow the recommendation if appropriate, then record the enacted policy${mayVeto ? " or a veto request" : ""}.`;
-        const outcomes = [["liberal", "Liberal policy enacted"], ["fascist", "Fascist policy enacted"]];
-        if (mayVeto) outcomes.push(["veto-requested", "I requested a veto"]);
-        $("workflow-fields").append(workflowSelect("What happened?", "actual-policy", outcomes));
+        const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
+        const types = [...new Set(cards)];
+        if (types.length > 1) {
+          const outcomes = [["liberal", "Enact Liberal"], ["fascist", "Enact Fascist"]];
+          $("workflow-fields").append(choiceButtonGroup("What happened?", "actual-policy", outcomes));
+        }
         $("advance-game").textContent = "Record result and continue →";
       } else if (game.stage === "policy-result") {
         $("workflow-step").textContent = "LEGISLATIVE SESSION / WAITING";
@@ -803,6 +866,7 @@
         $("advance-game").hidden = true;
         $("decision-inputs").hidden = true;
       }
+      updateAdvanceButtonState();
     }
 
     function finishFailedGovernment() {
@@ -1210,7 +1274,28 @@
         renderAll();
       }
     });
-    $("workflow-fields").addEventListener("change", () => { $("workflow-error").hidden = true; });
+    $("workflow-fields").addEventListener("change", (event) => {
+      $("workflow-error").hidden = true;
+      if (event.target.id === "actual-vote-result") {
+        const field = $("actual-own-vote");
+        if (event.target.value === "failed") {
+          if (!field) {
+            const wrapper = workflowSelect("Your vote (required if rejected)", "actual-own-vote", [["yes", "Ja"], ["no", "Nein"]]);
+            event.target.closest(".field").insertAdjacentElement("afterend", wrapper);
+          }
+        } else if (field) {
+          field.closest(".field")?.remove();
+        }
+      }
+      updateAdvanceButtonState();
+    });
+    $("workflow-fields").addEventListener("click", (event) => {
+      const button = event.target.closest(".choice-button");
+      if (button) {
+        event.preventDefault();
+        updateAdvanceButtonState();
+      }
+    });
 
     $("players").addEventListener("change", populateSeats);
     $("phase").addEventListener("change", () => { renderPhaseFields(); renderAll(); });
