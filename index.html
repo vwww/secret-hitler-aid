@@ -80,6 +80,12 @@
     .result { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 18px; }
     .result-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
     .result-label { color: var(--green); font: 10px var(--mono); text-transform: uppercase; letter-spacing: 0; }
+    .card-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+    .card-slot { padding: 8px; border: 1px solid var(--line); background: #111814; }
+    .card-slot-label { display: block; margin-bottom: 8px; color: var(--muted); font: 10px var(--mono); text-transform: uppercase; }
+    .card-toggle-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .card-toggle { min-height: 42px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; font-weight: 600; }
+    .card-toggle.is-selected { background: rgba(183, 238, 120, 0.12); border-color: var(--green); color: var(--green); }
     .result h3 { font: 27px/1.12 var(--serif); font-weight: 400; margin: 5px 0; }
     .confidence { font: 12px var(--mono); color: var(--green); white-space: nowrap; }
     .reason { margin: 9px 0 0; color: var(--muted); max-width: 640px; }
@@ -136,7 +142,6 @@
     .workflow-panel .result { margin-top: 12px; }
     #setup-fields > .primary-action { width: 100%; margin-top: 15px; }
     body.game-active #setup-fields { display: none; }
-    body.game-active #recommend { display: none; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     @media (max-width: 900px) {
       .layout { grid-template-columns: minmax(0, 1fr); }
@@ -298,6 +303,15 @@
     const seat = (id) => Number($(id).value);
     const playerName = (number) => `Player ${number}`;
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>\"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
 
     function populateSeats() {
       const count = playerCount();
@@ -367,13 +381,49 @@
         container.append(phaseField("Your office", "office", [["president", "President: discard 1 of 3"], ["chancellor", "Chancellor: enact 1 of 2"]]));
         const cards = document.createElement("div");
         cards.className = "field full";
-        cards.innerHTML = '<label for="hand">Policies in your hand</label><input id="hand" autocomplete="off" placeholder="F, L, F"><p class="hint">Enter the cards you can currently choose: 3 as president, 2 as chancellor. Use L for Liberal and F for Fascist.</p>';
+        cards.innerHTML = '<label>Policies in your hand</label><div id="hand-picker" class="card-picker"></div><input id="hand" type="hidden" value=""><p class="hint">Tap L or F for each card: 3 as president, 2 as chancellor.</p>';
         container.append(cards);
+        renderHandPicker();
       } else if (phase === "veto") {
         container.append(phaseField("Your office", "veto-office", [["president", "President: accept or veto"], ["chancellor", "Chancellor: accept or veto"]]));
         container.append(phaseField("Other player's response", "veto-response", [["unknown", "Not known yet"], ["accept", "Will accept"], ["veto", "Will veto"]]));
       } else {
         container.append(phaseField("Power", "power-type", [["investigate", "Investigate loyalty"], ["execute", "Execution"], ["special", "Special election"]]));
+      }
+    }
+
+    function renderHandPicker() {
+      const handInput = $("hand");
+      const picker = $("hand-picker");
+      if (!handInput || !picker) return;
+      const list = (handInput.value || "").toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F");
+      const expected = $("office")?.value === "president" ? 3 : 2;
+      picker.replaceChildren();
+      for (let index = 0; index < expected; index++) {
+        const slot = document.createElement("div");
+        slot.className = "card-slot";
+        const label = document.createElement("span");
+        label.className = "card-slot-label";
+        label.textContent = `Card ${index + 1}`;
+        const group = document.createElement("div");
+        group.className = "card-toggle-group";
+        ["L", "F"].forEach((letter) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "card-toggle" + (list[index] === letter ? " is-selected" : "");
+          button.textContent = letter;
+          button.setAttribute("aria-label", `Card ${index + 1}: ${letter}`);
+          button.addEventListener("click", () => {
+            const current = (handInput.value || "").toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F");
+            current[index] = letter;
+            handInput.value = Array.from({ length: expected }, (_, slotIndex) => current[slotIndex] || "").join(",").replace(/,+/g, ",").replace(/^,|,$/g, "");
+            renderHandPicker();
+            renderAll();
+          });
+          group.append(button);
+        });
+        slot.append(label, group);
+        picker.append(slot);
       }
     }
 
@@ -924,7 +974,6 @@
       $("lastChancellor").value = "0";
       $("phase").value = "nomination";
       renderPhaseFields();
-      $("workflow-advice").append($("result"));
       renderAll();
     }
 
@@ -932,7 +981,6 @@
       state.game.active = false;
       state.game.stage = "setup";
       state.events = [];
-      $("advice-title").parentElement.insertBefore($("result"), $("advice-title").parentElement.querySelector(".beliefs"));
       $("libPolicies").value = "0";
       $("fasPolicies").value = "0";
       $("tracker").value = "0";
@@ -1152,6 +1200,13 @@
     $("advance-game").addEventListener("click", advanceWorkflow);
     $("phase-fields").addEventListener("input", renderAll);
     $("phase-fields").addEventListener("change", renderAll);
+    $("phase-fields").addEventListener("click", (event) => {
+      const cardToggle = event.target.closest(".card-toggle");
+      if (cardToggle) {
+        event.preventDefault();
+        renderAll();
+      }
+    });
     $("workflow-fields").addEventListener("change", () => { $("workflow-error").hidden = true; });
 
     $("players").addEventListener("change", populateSeats);
