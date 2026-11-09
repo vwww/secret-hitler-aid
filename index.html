@@ -126,7 +126,7 @@
       .board-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
     }
     @media (max-width: 600px) {
-      .shell { padding: 20px 14px 36px; }
+      .shell { padding: 20px 14px calc(94px + env(safe-area-inset-bottom)); }
       header { align-items: flex-start; flex-direction: column; gap: 12px; padding-bottom: 17px; }
       h1 { font-size: 30px; }
       .engine-tag { text-align: left; max-width: none; }
@@ -134,11 +134,27 @@
       .board-stat:last-child { grid-column: 1 / -1; }
       .board-stat { min-height: 69px; padding: 11px; }
       .board-stat strong { font-size: 20px; }
-      .form-grid { gap: 10px; }
+      .form-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+      .field.full { grid-column: auto; }
+      input, select { min-height: 46px; font-size: 16px; }
+      .decision-inputs { padding: 13px; }
+      .primary-action { position: fixed; z-index: 20; right: 0; bottom: 0; left: 0; width: 100%; min-height: calc(60px + env(safe-area-inset-bottom)); margin: 0; padding: 10px 20px calc(10px + env(safe-area-inset-bottom)); border: 0; border-top: 1px solid #d6ff9a; border-radius: 0; box-shadow: 0 -8px 24px #0009; }
+      .quiet-action { min-height: 44px; }
+      .remove-event { min-width: 44px; min-height: 44px; }
       .log-form { grid-template-columns: 1fr 1fr; }
       .log-form .field:first-child { grid-column: 1 / -1; }
+      .log-form input, .log-form select { min-height: 46px; padding: 8px; font-size: 16px; }
       .log-form .quiet-action { width: 100%; }
-      .choice-row { grid-template-columns: minmax(95px, 1fr) minmax(60px, 1.1fr) 38px; gap: 7px; }
+      .choice-row { grid-template-columns: minmax(0, 1.1fr) minmax(52px, 1fr) 38px; gap: 7px; }
+      .choice-row span { overflow-wrap: anywhere; }
+      .result-top { flex-wrap: wrap; }
+      .result h3 { font-size: 24px; }
+      table { min-width: 0; table-layout: fixed; }
+      th:first-child, td:first-child { width: 27%; }
+      th:nth-child(2), td:nth-child(2) { width: 37%; }
+      th:last-child, td:last-child { width: 36%; }
+      th, td { padding-right: 4px; padding-left: 4px; overflow-wrap: anywhere; }
+      .role-pill { font-size: 9px; }
     }
   </style>
 </head>
