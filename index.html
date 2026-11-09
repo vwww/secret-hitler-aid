@@ -1085,7 +1085,7 @@
         const best = choices[0];
         const probabilities = regretMatch(choices);
         choices.forEach((choice, index) => choice.probability = probabilities[index]);
-        return { choices, best, reason: ownTeam < 0 ? `As a liberal, favor the lowest-risk eligible candidate. ${best.reason}` : `As a fascist, favor a teammate or a high-risk candidate. ${best.reason}` };
+        return { choices, best, reason: ownTeam < 0 ? `As a liberal, favor the lowest-risk eligible candidate. ${best.reason}` : `As a fascist, favor a teammate or a high-risk candidate. ${best.reason}`, beliefs, knownRoles };
       }
       if (phase === "vote") {
         const government = [president, chancellor].filter((number) => number > 0 && !state.game.eliminated.has(number));
