@@ -11,7 +11,7 @@ Open `index.html` in a modern browser. No installation, server, or external depe
 
 ## Use
 
-1. For a fresh game, set the player count, your seat and private role, and the starting president. Enter roles you know with certainty; Fascists know Hitler in 5-6 player games, and the Fascist team knows its members in 7-10 player games. The board starts with zero policies and an empty election tracker.
+1. For a fresh game, set the player count, your seat and private role, and the starting president. Optionally enter names in the **Player names** section; you can also edit them during the game. Enter roles you know with certainty; Fascists know Hitler in 5-6 player games, and the Fascist team knows its members in 7-10 player games. The board starts with zero policies and an empty election tracker.
 2. Select **Start fresh game**. The page advances through nomination, government vote, legislative decisions, tracker policies, veto responses, and executive powers as you record each actual outcome.
 3. Use the recommendation when the current decision is yours. Presidents enter their three policy cards; chancellors enter their two. Other players are prompted to wait for the public result instead of receiving an irrelevant private-hand recommendation.
 4. After the table acts, choose what actually happened and select **Record and continue**. Failed elections prompt for your vote and update the tracker; three failures prompt for the top-decked policy. Policy results update the tracks and any required power.

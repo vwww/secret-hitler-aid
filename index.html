@@ -240,6 +240,11 @@
         <button type="button" class="primary-action" id="start-game">Start fresh game <span aria-hidden="true">&#8594;</span></button>
         </div>
 
+        <details class="log player-names">
+          <summary class="log-summary">Player names</summary>
+          <div class="form-grid" id="player-name-fields"></div>
+        </details>
+
         <div class="decision-inputs" id="decision-inputs" hidden>
           <h3 id="decision-title">Your decision</h3>
           <div id="phase-fields" class="form-grid"></div>
@@ -291,6 +296,7 @@
     const state = {
       events: [],
       lastAdvice: null,
+      playerNames: [],
       game: {
         active: false,
         stage: "setup",
@@ -308,7 +314,7 @@
     };
     const playerCount = () => Number($("players").value);
     const seat = (id) => Number($(id).value);
-    const playerName = (number) => `Player ${number}`;
+    const playerName = (number) => state.playerNames[number - 1]?.trim() || `Player ${number}`;
     const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>\"']/g, (char) => ({
@@ -322,6 +328,7 @@
 
     function populateSeats() {
       const count = playerCount();
+      renderPlayerNameFields();
       const ids = ["you", "president", "chancellor", "lastChancellor", "eventSeat", "eventOther", "knownHitler"];
       for (const id of ids) {
         const select = $(id);
@@ -346,6 +353,38 @@
       $("eventOther").value = $("eventOther").value === "0" ? "3" : $("eventOther").value;
       renderPhaseFields();
       renderAll();
+    }
+
+    function renderPlayerNameFields() {
+      const container = $("player-name-fields");
+      container.replaceChildren();
+      for (let number = 1; number <= playerCount(); number++) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "field";
+        const label = document.createElement("label");
+        label.htmlFor = `player-name-${number}`;
+        label.textContent = `Seat ${number}`;
+        const input = document.createElement("input");
+        input.id = `player-name-${number}`;
+        input.type = "text";
+        input.maxLength = 32;
+        input.autocomplete = "off";
+        input.placeholder = `Player ${number}`;
+        input.value = state.playerNames[number - 1] ?? "";
+        input.dataset.playerSeat = String(number);
+        wrapper.append(label, input);
+        container.append(wrapper);
+      }
+    }
+
+    function refreshSeatLabels() {
+      const ids = ["you", "president", "chancellor", "lastChancellor", "eventSeat", "eventOther", "knownHitler"];
+      for (const id of ids) {
+        for (const option of $(id).options) {
+          const number = Number(option.value);
+          if (number > 0) option.textContent = playerName(number);
+        }
+      }
     }
 
     function phaseField(label, id, options, hint = "") {
@@ -835,8 +874,8 @@
       const mayVeto = Number($("fasPolicies").value) >= 5 && !game.vetoDenied;
 
       if (game.stage === "nomination") {
-        $("workflow-step").textContent = `ROUND ${game.round} / PRESIDENT ${game.president}`;
-        $("workflow-title").textContent = isPresident ? "Choose a chancellor" : `Waiting for Player ${game.president} to nominate`;
+        $("workflow-step").textContent = `ROUND ${game.round} / PRESIDENT ${playerName(game.president)}`;
+        $("workflow-title").textContent = isPresident ? "Choose a chancellor" : `Waiting for ${playerName(game.president)} to nominate`;
         $("workflow-prompt").textContent = isPresident
           ? "Check the recommended candidate, nominate at the table, then record who was actually nominated."
           : "After the president announces a nominee, select that seat here to get the vote decision.";
@@ -844,7 +883,7 @@
         $("advance-game").textContent = "Record nomination and continue →";
       } else if (game.stage === "vote") {
         $("workflow-step").textContent = "VOTE ON GOVERNMENT";
-        $("workflow-title").textContent = `President ${game.president} + Chancellor ${game.chancellor}`;
+        $("workflow-title").textContent = `${playerName(game.president)} + ${playerName(game.chancellor)}`;
         $("workflow-prompt").textContent = "Review the role estimates, cast your vote, then record the table result. If it fails, your vote is added to the evidence log.";
         $("workflow-fields").append(workflowSelect("Government passed?", "actual-vote-result", [["passed", "Yes, government elected"], ["failed", "No, government rejected"]]));
         if (Number($("fasPolicies").value) >= 3) {
@@ -885,7 +924,7 @@
         $("workflow-title").textContent = isPresident ? "Accept or reject the veto" : "Record the veto response";
         $("workflow-prompt").textContent = isPresident
           ? "Review the recommendation, decide at the table, then record whether the veto was approved."
-          : `The president (Player ${game.president}) decides whether to approve the request. Record the actual response.`;
+          : `The president (${playerName(game.president)}) decides whether to approve the request. Record the actual response.`;
         $("workflow-fields").append(workflowSelect("Veto approved?", "actual-veto-result", [["approved", "Yes, policies vetoed"], ["denied", "No, chancellor enacted a policy"]]));
         $("advance-game").textContent = "Record veto response →";
       } else if (game.stage === "top-policy") {
@@ -900,7 +939,7 @@
         $("workflow-title").textContent = isPresident ? `Use the ${powerName}` : `Record the ${powerName}`;
         $("workflow-prompt").textContent = isPresident
           ? "Use the recommended target if appropriate, resolve the power at the table, then enter the result."
-          : `Player ${game.president} resolves this power. Enter the public or privately learned result you can verify.`;
+          : `${playerName(game.president)} resolves this power. Enter the public or privately learned result you can verify.`;
         if (game.pendingPower === "investigate") {
           $("workflow-fields").append(workflowSelect("Player investigated", "power-result-target", options.filter(([number]) => Number(number) !== game.president)), workflowSelect("Party membership result", "power-result-party", [["fascist", "Fascist"], ["liberal", "Liberal"]]));
         } else if (game.pendingPower === "execute") {
@@ -1210,9 +1249,9 @@
             "finished": "The game has ended.",
             "top-policy": "No individual move here. Record the automatically enacted policy below.",
             "policy-result": "No move for you now. Record the public policy result below.",
-            "nomination": `No move for you yet. Player ${game.president} is choosing a chancellor.`,
-            "veto-result": `No move for you here. Player ${game.president} decides whether to approve the veto.`,
-            "power": `No move for you here. Player ${game.president} resolves the executive power.`
+            "nomination": `No move for you yet. ${playerName(game.president)} is choosing a chancellor.`,
+            "veto-result": `No move for you here. ${playerName(game.president)} decides whether to approve the veto.`,
+            "power": `No move for you here. ${playerName(game.president)} resolves the executive power.`
           };
           $("result").innerHTML = `<div class="result-top"><div><div class="result-label">Current stage</div><h3>${escapeHtml(messages[game.stage])}</h3></div></div><p class="reason">The next entry is shown in the live game panel.</p>`;
           renderBeliefs();
@@ -1247,7 +1286,7 @@
         const role = knownRoles.get(number);
         const risk = beliefs[number]?.fascist ?? 0;
         const cells = [
-          `<span class="player-name">${playerName(number)}${number === seat("you") ? " (you)" : ""}</span>`,
+          `<span class="player-name">${escapeHtml(playerName(number))}${number === seat("you") ? " (you)" : ""}</span>`,
           `<span class="role-pill">${role ? `KNOWN ${escapeHtml(role.toUpperCase())}` : "UNRESOLVED"}</span>`,
           `<span class="prob ${risk > .65 ? "high" : risk < .35 ? "low" : ""}">${Math.round(risk * 100)}%</span>`
         ];
@@ -1355,6 +1394,13 @@
     });
 
     $("players").addEventListener("change", populateSeats);
+    $("player-name-fields").addEventListener("input", (event) => {
+      const input = event.target.closest("[data-player-seat]");
+      if (!input) return;
+      state.playerNames[Number(input.dataset.playerSeat) - 1] = input.value;
+      refreshSeatLabels();
+      renderAll();
+    });
     $("phase").addEventListener("change", () => { renderPhaseFields(); renderAll(); });
     $("role").addEventListener("change", () => { renderRoleFields(); renderAll(); });
     for (const id of ["you", "president", "chancellor", "lastChancellor", "knownHitler", "libPolicies", "fasPolicies", "tracker"]) {
