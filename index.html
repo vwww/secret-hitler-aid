@@ -224,17 +224,17 @@
           <div class="field" hidden><label for="fasPolicies">Fascist policies</label><input id="fasPolicies" type="number" min="0" max="6" value="0"></div>
           <div class="field" hidden><label for="tracker">Election tracker</label><input id="tracker" type="number" min="0" max="3" value="0"></div>
           <div class="field" hidden><label for="lastChancellor">Last elected chancellor</label><select id="lastChancellor"></select></div>
+          <div class="field full hidden-role-field" id="knownHitlerField">
+            <label for="knownHitler">Known Hitler seat</label>
+            <select id="knownHitler"></select>
+          </div>
           <div class="field full hidden-role-field" id="knownFascistsField">
             <label id="knownFascistsLabel" for="knownFascists">Known fascist seats</label>
             <div id="knownFascistsPicker" class="seat-picker" aria-label="Known fascist seats"></div>
             <input id="knownFascists" type="hidden" value="">
             <p class="hint" id="knownFascistsHint">Tap each seat you know is a fascist.</p>
-            <p class="validation-error" id="knownFascistsError" role="alert" hidden></p>
           </div>
-          <div class="field full hidden-role-field" id="knownHitlerField">
-            <label for="knownHitler">Known Hitler seat</label>
-            <select id="knownHitler"></select>
-          </div>
+          <p class="validation-error field full" id="knownFascistsError" role="alert" hidden></p>
           <p class="hint field full" id="role-hint">Enter only roles you know with certainty. In 5-6 player games, fascists know Hitler.</p>
         </div>
         <button type="button" class="primary-action" id="start-game">Start fresh game <span aria-hidden="true">&#8594;</span></button>
@@ -453,15 +453,13 @@
       const isLiberal = role === "Liberal";
       const isFascist = role === "Fascist";
       const isHitler = role === "Hitler";
-      const knowsFascists = !isLiberal && (!isHitler || playerCount() <= 6);
 
-      $("knownFascistsField").hidden = !knowsFascists;
       $("knownHitlerField").hidden = isLiberal || isHitler;
-      $("knownFascistsLabel").textContent = isHitler ? "Other fascist seats" : "Known fascist seats";
+      $("knownFascistsLabel").textContent = isHitler || isFascist ? "Other fascist seats" : "Known fascist seats";
       $("knownFascistsHint").textContent = isHitler
         ? "Tap each seat you know is a fascist. Do not include your own seat."
         : isFascist
-          ? "Tap each other fascist seat you know, including Hitler. Do not include your own seat."
+          ? "Select the remaining fascist seats. Hitler is selected above; do not include your own seat."
           : "Tap each seat you know is a fascist.";
       for (const option of $("knownHitler").options) {
         const isOwnSeat = option.value !== "0" && Number(option.value) === seat("you");
@@ -470,13 +468,18 @@
       if (isFascist && Number($("knownHitler").value) === seat("you")) {
         $("knownHitler").value = "0";
       }
+      const hitlerSeat = Number($("knownHitler").value);
+      const remainingFascists = Math.max(0, roleCounts().fascists - 1);
+      const showKnownFascists = (isFascist && hitlerSeat > 0 && remainingFascists > 0) || (isHitler && playerCount() <= 6);
+      $("knownFascistsField").hidden = !showKnownFascists;
 
-      if (!knowsFascists) {
+      if (!showKnownFascists) {
         $("knownFascists").value = "";
       }
       const selected = parseKnownFascists();
       if (isHitler || isFascist) {
         selected.delete(seat("you"));
+        if (isFascist && hitlerSeat) selected.delete(hitlerSeat);
         $("knownFascists").value = [...selected].sort((a, b) => a - b).join(",");
       }
       if (isLiberal) {
@@ -489,6 +492,7 @@
       picker.replaceChildren();
       for (let number = 1; number <= playerCount(); number++) {
         if ((isHitler || isFascist) && number === seat("you")) continue;
+        if (isFascist && number === hitlerSeat) continue;
         const button = document.createElement("button");
         button.type = "button";
         button.className = "seat-chip" + (selected.has(number) ? " is-selected" : "");
@@ -530,10 +534,10 @@
         return "Select Hitler's seat in the dropdown before starting the game.";
       }
       const selected = parseKnownFascists();
-      if (role === "Fascist" && !selected.has(hitlerSeat)) {
-        return "Include the selected Hitler seat in the known fascist seats.";
+      if (role === "Fascist" && selected.has(hitlerSeat)) {
+        return "Hitler is selected above; choose only the remaining fascist seats here.";
       }
-      const expected = roleCounts().fascists;
+      const expected = role === "Fascist" ? Math.max(0, roleCounts().fascists - 1) : roleCounts().fascists;
       if (selected.has(seat("you"))) return "Do not include your own seat in the known fascist seats.";
       if (selected.size !== expected) {
         return `Select exactly ${expected} other fascist seat${expected === 1 ? "" : "s"}; ${selected.size} selected.`;
@@ -1353,14 +1357,6 @@
     $("players").addEventListener("change", populateSeats);
     $("phase").addEventListener("change", () => { renderPhaseFields(); renderAll(); });
     $("role").addEventListener("change", () => { renderRoleFields(); renderAll(); });
-    $("knownHitler").addEventListener("change", () => {
-      if ($("role").value !== "Fascist") return;
-      const hitlerSeat = Number($("knownHitler").value);
-      if (!hitlerSeat) return;
-      const knownFascists = parseKnownFascists();
-      knownFascists.add(hitlerSeat);
-      $("knownFascists").value = [...knownFascists].sort((a, b) => a - b).join(",");
-    });
     for (const id of ["you", "president", "chancellor", "lastChancellor", "knownHitler", "libPolicies", "fasPolicies", "tracker"]) {
       $(id).addEventListener("input", renderAll);
       $(id).addEventListener("change", renderAll);
