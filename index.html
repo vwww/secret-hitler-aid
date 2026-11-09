@@ -274,7 +274,7 @@
           <div class="beliefs-title"><h3>Hidden-role estimates</h3><span>POSTERIOR P(FASCIST)</span></div>
           <div class="table-wrap"><table><thead><tr><th>Seat</th><th>Inference</th><th>Fascist chance</th></tr></thead><tbody id="belief-rows"></tbody></table></div>
         </div>
-        <div class="method"><strong>Model note:</strong> Role estimates enumerate valid standard role assignments and weight them by logged evidence. Recommendations use rule-based utilities with regret matching; this is a lightweight advisor, not a full-game equilibrium solver.</div>
+        <div class="method"><strong>Model note:</strong> This advisor updates from objective public evidence, known seats, and board state. It does not use subjective suspicion labels; it infers hidden roles from logged actions and then scores legal moves with a rule-based, regret-matching heuristic.</div>
       </section>
     </div>
   </main>
@@ -376,7 +376,10 @@
         note.textContent = "The president cannot nominate themself or the previous elected chancellor.";
         container.append(note);
       } else if (phase === "vote") {
-        container.append(phaseField("Who looks suspicious?", "vote-team", [["neither", "Neither member"], ["president", "President"], ["chancellor", "Chancellor"], ["both", "Both members"]]));
+        const note = document.createElement("p");
+        note.className = "hint field full";
+        note.textContent = "Base the vote on public evidence, policy history, and the current government pair.";
+        container.append(note);
       } else if (phase === "legislative") {
         container.append(phaseField("Your office", "office", [["president", "President: discard 1 of 3"], ["chancellor", "Chancellor: enact 1 of 2"]]));
         const cards = document.createElement("div");
@@ -1018,12 +1021,11 @@
         return { choices, best, reason: ownTeam < 0 ? `As a liberal, favor the lowest-risk eligible candidate. ${best.reason}` : `As a fascist, favor a teammate or a high-risk candidate. ${best.reason}` };
       }
       if (phase === "vote") {
-        const team = $("vote-team").value;
-        const teamSeats = team === "both" ? [president, chancellor] : team === "president" ? [president] : team === "chancellor" ? [chancellor] : [];
-        const teamRisk = teamSeats.reduce((sum, number) => sum + suspicion(number), 0);
+        const government = [president, chancellor].filter((number) => number > 0 && !state.game.eliminated.has(number));
+        const teamRisk = government.reduce((sum, number) => sum + suspicion(number), 0) / Math.max(1, government.length);
         let yesValue = ownTeam < 0 ? 1.5 - teamRisk * 4 : 1 + teamRisk * 2;
         if (tracker === 2) yesValue += ownTeam < 0 ? 3 : 2;
-        addChoice("Vote Ja", yesValue, `Team fascist-risk estimate: ${Math.round(teamRisk / Math.max(1, teamSeats.length) * 100)}%.`);
+        addChoice("Vote Ja", yesValue, `Government pair fascist-risk estimate: ${Math.round(teamRisk * 100)}%.`);
         addChoice("Vote Nein", -yesValue, "Rejecting a government raises the election tracker if the vote fails.");
       } else if (phase === "legislative") {
         const hand = $("hand").value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F");
@@ -1110,8 +1112,9 @@
         renderBeliefs(result.beliefs, result.knownRoles);
         return;
       }
+      const knownCount = [...result.knownRoles.values()].filter((value) => value !== undefined && value !== null && value !== "").length;
       const phaseName = $("phase").selectedOptions[0].textContent;
-      container.innerHTML = `<div class="result-top"><div><div class="result-label">Recommended / ${escapeHtml(phaseName)}</div><h3>${escapeHtml(result.best.name)}</h3></div><div class="confidence">${Math.round((result.best.probability ?? 0) * 100)}% regret share</div></div><p class="reason">${escapeHtml(result.reason)}</p><div class="choice-list">${result.choices.map((choice, index) => `<div class="choice-row ${index === 0 ? "selected" : ""}"><span>${escapeHtml(choice.name)}</span><div class="bar"><i style="width:${Math.round((choice.probability ?? 0) * 100)}%"></i></div><b>${Math.round((choice.probability ?? 0) * 100)}%</b></div>`).join("")}</div>`;
+      container.innerHTML = `<div class="result-top"><div><div class="result-label">Recommended / ${escapeHtml(phaseName)}</div><h3>${escapeHtml(result.best.name)}</h3></div><div class="confidence">${Math.round((result.best.probability ?? 0) * 100)}% regret share</div></div><p class="reason">${escapeHtml(result.reason)}</p><p class="reason">Evidence basis: ${knownCount} known seats, ${state.events.length} logged public events, board state from policy tracks and current government.</p><div class="choice-list">${result.choices.map((choice, index) => `<div class="choice-row ${index === 0 ? "selected" : ""}"><span>${escapeHtml(choice.name)}</span><div class="bar"><i style="width:${Math.round((choice.probability ?? 0) * 100)}%"></i></div><b>${Math.round((choice.probability ?? 0) * 100)}%</b></div>`).join("")}</div>`;
       renderBeliefs(result.beliefs, result.knownRoles);
     }
 
