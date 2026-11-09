@@ -904,9 +904,6 @@
         $("workflow-title").textContent = `${playerName(game.president)} + ${playerName(game.chancellor)}`;
         $("workflow-prompt").textContent = "Review the role estimates, cast your vote, then record the table result. If it fails, your vote is added to the evidence log.";
         $("workflow-fields").append(workflowSelect("Government passed?", "actual-vote-result", [["passed", "Yes, government elected"], ["failed", "No, government rejected"]]));
-        if (Number($("fasPolicies").value) >= 3) {
-          $("workflow-fields").append(workflowSelect("Did Hitler's election end the game?", "hitler-election", [["no", "No / not known to be Hitler"], ["yes", "Yes, Fascists win"]], "Select the game result"));
-        }
         $("advance-game").textContent = "Record vote and continue →";
       } else if (game.stage === "president-discard") {
         $("workflow-step").textContent = "LEGISLATIVE SESSION / PRESIDENT";
@@ -1439,14 +1436,22 @@
     $("workflow-fields").addEventListener("change", (event) => {
       $("workflow-error").hidden = true;
       if (event.target.id === "actual-vote-result") {
-        const field = $("actual-own-vote");
+        const voteField = $("actual-own-vote")?.closest(".field");
+        const hitlerField = $("hitler-election")?.closest(".field");
         if (event.target.value === "failed") {
-          if (!field) {
+          if (!voteField) {
             const wrapper = workflowSelect("Your vote (required if rejected)", "actual-own-vote", [["yes", "Ja"], ["no", "Nein"]]);
             event.target.closest(".field").insertAdjacentElement("afterend", wrapper);
           }
-        } else if (field) {
-          field.closest(".field")?.remove();
+          hitlerField?.remove();
+        } else {
+          voteField?.remove();
+          if (event.target.value === "passed" && Number($("fasPolicies").value) >= 3 && !hitlerField) {
+            const wrapper = workflowSelect("Did Hitler's election end the game?", "hitler-election", [["no", "No / not known to be Hitler"], ["yes", "Yes, Fascists win"]], "Select the game result");
+            event.target.closest(".field").insertAdjacentElement("afterend", wrapper);
+          } else if (event.target.value !== "passed" || Number($("fasPolicies").value) < 3) {
+            hitlerField?.remove();
+          }
         }
       }
       updateAdvanceButtonState();
