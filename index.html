@@ -748,10 +748,14 @@
         const result = $("actual-vote-result")?.value;
         disabled = !result || (result === "failed" && !$("actual-own-vote")?.value) || (result === "passed" && Number($("fasPolicies").value) >= 3 && !$("hitler-election")?.value);
       } else if (stage === "president-discard") {
-        disabled = !$("actual-discard")?.value;
+        const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
+        const hasDiscardChoice = new Set(cards).size > 1;
+        disabled = cards.length !== 3 || (hasDiscardChoice && !$("actual-discard")?.value);
       } else if (stage === "chancellor-policy") {
+        const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
+        const hasPolicyChoice = new Set(cards).size > 1;
         const outcome = $("actual-policy")?.value;
-        disabled = !outcome;
+        disabled = cards.length !== 2 || (hasPolicyChoice && !outcome);
       } else if (stage === "policy-result") {
         disabled = !$("actual-policy")?.value;
       } else if (stage === "veto-result") {
@@ -1041,13 +1045,14 @@
       } else if (game.stage === "president-discard") {
         const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
         if (cards.length !== 3) return showWorkflowError("hand", "Enter the three policy cards you received.");
-        if (!requireWorkflowValue("actual-discard", "Select the card you actually discarded.")) return;
+        if (new Set(cards).size > 1 && !requireWorkflowValue("actual-discard", "Select the card you actually discarded.")) return;
         game.stage = "policy-result";
       } else if (game.stage === "chancellor-policy") {
         const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
         if (cards.length !== 2) return showWorkflowError("hand", "Enter the two policy cards you received.");
-        if (!requireWorkflowValue("actual-policy", "Record the enacted policy or veto request.")) return;
-        const outcome = $("actual-policy").value;
+        let outcome = $("actual-policy")?.value;
+        if (!outcome && new Set(cards).size === 1) outcome = cards[0] === "L" ? "liberal" : "fascist";
+        if (!outcome && !requireWorkflowValue("actual-policy", "Record the enacted policy or veto request.")) return;
         if (outcome === "veto-requested") {
           game.stage = "veto-result";
         } else if (cards.includes(outcome === "liberal" ? "L" : "F")) {
