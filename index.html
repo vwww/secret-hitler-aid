@@ -188,9 +188,9 @@
   <main class="shell">
     <header>
       <div>
-        <div class="eyebrow">Table-side decision support</div>
-        <h1>Bayesian CFR Advisor</h1>
-        <p class="subtitle">Track the table. Weigh hidden roles. Get a move recommendation for the decision in front of you.</p>
+        <div class="eyebrow">Table-state advisor</div>
+        <h1>Secret Hitler Advisor</h1>
+        <p class="subtitle">Track the public state, update hidden-role beliefs from observed evidence, and score the current decision with a rule-based recommendation engine.</p>
       </div>
       <div class="engine-tag"><strong>STANDARD RULESET</strong><br>5-10 players &middot; private, local state</div>
     </header>
@@ -205,7 +205,7 @@
 
     <div class="layout">
       <section class="column" aria-labelledby="state-title">
-        <div class="section-heading"><h2 id="state-title">Game state</h2><span class="section-kicker">01 / setup</span></div>
+        <div class="section-heading"><h2 id="state-title">State tracker</h2><span class="section-kicker">01 / setup</span></div>
         <div id="setup-fields">
         <div class="form-grid">
           <div class="field"><label for="players">Players</label><select id="players"><option>5</option><option>6</option><option selected>7</option><option>8</option><option>9</option><option>10</option></select></div>
@@ -267,8 +267,8 @@
       <section class="column" aria-labelledby="advice-title">
         <div class="section-heading"><h2 id="advice-title">Decision analysis</h2><span class="section-kicker">02 / recommendation</span></div>
         <div class="result" aria-live="polite" id="result">
-          <div class="result-top"><div><div class="result-label">Ready when you are</div><h3>Set the table, then find your move.</h3></div></div>
-          <p class="reason">Recommendations update from your role, the board, and observed actions. Enter the current decision details for legal, relevant options.</p>
+          <div class="result-top"><div><div class="result-label">Ready when you are</div><h3>Enter the current state, then score the move.</h3></div></div>
+          <p class="reason">Recommendations update from role information, policy history, and the visible game state. Enter only the facts needed to evaluate the current decision.</p>
         </div>
         <div class="beliefs">
           <div class="beliefs-title"><h3>Hidden-role estimates</h3><span>POSTERIOR P(FASCIST)</span></div>
