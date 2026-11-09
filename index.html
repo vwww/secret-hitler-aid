@@ -765,7 +765,8 @@
       } else if (stage === "top-policy") {
         disabled = !$("top-policy-result")?.value;
       } else if (stage === "power") {
-        disabled = !$("power-result-target")?.value || (state.game.pendingPower === "investigate" && !$("power-result-party")?.value) || (state.game.pendingPower === "execute" && !$("power-result-game")?.value);
+        const privateInvestigation = state.game.pendingPower === "investigate" && seat("you") !== state.game.president;
+        disabled = !privateInvestigation && (!$("power-result-target")?.value || (state.game.pendingPower === "investigate" && !$("power-result-party")?.value) || (state.game.pendingPower === "execute" && !$("power-result-game")?.value));
       }
       button.disabled = disabled;
       button.setAttribute("aria-disabled", String(disabled));
@@ -957,19 +958,24 @@
         $("advance-game").textContent = "Record policy and continue →";
       } else if (game.stage === "power") {
         const powerName = { investigate: "investigation", execute: "execution", special: "special election" }[game.pendingPower];
+        const privateInvestigation = game.pendingPower === "investigate" && !isPresident;
         $("workflow-step").textContent = `FASCIST POLICY / ${powerName.toUpperCase()}`;
-        $("workflow-title").textContent = isPresident ? `Use the ${powerName}` : `Record the ${powerName}`;
-        $("workflow-prompt").textContent = isPresident
-          ? "Use the recommended target if appropriate, resolve the power at the table, then enter the result."
-          : `${playerName(game.president)} resolves this power. Enter the public or privately learned result you can verify.`;
-        if (game.pendingPower === "investigate") {
+        $("workflow-title").textContent = privateInvestigation ? "Investigation is private" : isPresident ? `Use the ${powerName}` : `Record the ${powerName}`;
+        $("workflow-prompt").textContent = privateInvestigation
+          ? `Only ${playerName(game.president)} sees the investigation result. There is nothing to record; continue after the investigation is resolved.`
+          : isPresident
+            ? "Use the recommended target if appropriate, resolve the power at the table, then enter the result."
+            : `${playerName(game.president)} resolves this power. Enter the public result you can verify.`;
+        if (privateInvestigation) {
+          $("advance-game").textContent = "Continue to next president →";
+        } else if (game.pendingPower === "investigate") {
           $("workflow-fields").append(workflowSelect("Player investigated", "power-result-target", options.filter(([number]) => Number(number) !== game.president)), workflowSelect("Party membership result", "power-result-party", [["fascist", "Fascist"], ["liberal", "Liberal"]]));
         } else if (game.pendingPower === "execute") {
           $("workflow-fields").append(workflowSelect("Player executed", "power-result-target", options.filter(([number]) => Number(number) !== game.president)), workflowSelect("Game result", "power-result-game", [["continues", "Game continues"], ["liberals-win", "Hitler was executed; Liberals win"]], ""));
         } else {
           $("workflow-fields").append(workflowSelect("Special-election president", "power-result-target", options.filter(([number]) => Number(number) !== game.president)));
         }
-        $("advance-game").textContent = "Record power and continue →";
+        if (!privateInvestigation) $("advance-game").textContent = "Record power and continue →";
       } else if (game.stage === "finished") {
         $("workflow-step").textContent = "GAME OVER";
         $("workflow-title").textContent = game.winner;
@@ -1122,30 +1128,35 @@
         const policy = $("top-policy-result").value;
         enactPolicy(policy, true);
       } else if (game.stage === "power") {
-        if (!requireWorkflowValue("power-result-target", "Select the player affected by the executive power.")) return;
-        const target = Number($("power-result-target").value);
-        if (game.pendingPower === "investigate") {
-          if (!requireWorkflowValue("power-result-party", "Enter the party membership you learned.")) return;
-          const party = $("power-result-party").value;
-          addEvidence(party === "fascist" ? "investigated-f" : "investigated-l", target);
+        if (game.pendingPower === "investigate" && seat("you") !== game.president) {
           game.pendingPower = "";
           nextPresident();
-        } else if (game.pendingPower === "execute") {
-          if (!requireWorkflowValue("power-result-game", "Record whether the game continued or Hitler was executed.")) return;
-          if ($("power-result-game").value === "liberals-win") {
-            setWinner("Liberals win: Hitler was executed.");
-          } else {
-            game.eliminated.add(target);
+        } else {
+          if (!requireWorkflowValue("power-result-target", "Select the player affected by the executive power.")) return;
+          const target = Number($("power-result-target").value);
+          if (game.pendingPower === "investigate") {
+            if (!requireWorkflowValue("power-result-party", "Enter the party membership you learned.")) return;
+            const party = $("power-result-party").value;
+            addEvidence(party === "fascist" ? "investigated-f" : "investigated-l", target);
             game.pendingPower = "";
             nextPresident();
+          } else if (game.pendingPower === "execute") {
+            if (!requireWorkflowValue("power-result-game", "Record whether the game continued or Hitler was executed.")) return;
+            if ($("power-result-game").value === "liberals-win") {
+              setWinner("Liberals win: Hitler was executed.");
+            } else {
+              game.eliminated.add(target);
+              game.pendingPower = "";
+              nextPresident();
+            }
+          } else if (game.pendingPower === "special") {
+            game.specialReturn = game.specialActive ? game.specialReturn : regularNextPresident(game.president);
+            game.specialActive = true;
+            game.president = target;
+            game.chancellor = 0;
+            game.pendingPower = "";
+            game.stage = "nomination";
           }
-        } else if (game.pendingPower === "special") {
-          game.specialReturn = game.specialActive ? game.specialReturn : regularNextPresident(game.president);
-          game.specialActive = true;
-          game.president = target;
-          game.chancellor = 0;
-          game.pendingPower = "";
-          game.stage = "nomination";
         }
       }
       renderAll();
