@@ -463,6 +463,13 @@
         : isFascist
           ? "Tap each other fascist seat you know, including Hitler. Do not include your own seat."
           : "Tap each seat you know is a fascist.";
+      for (const option of $("knownHitler").options) {
+        const isOwnSeat = option.value !== "0" && Number(option.value) === seat("you");
+        option.disabled = isFascist && isOwnSeat;
+      }
+      if (isFascist && Number($("knownHitler").value) === seat("you")) {
+        $("knownHitler").value = "0";
+      }
 
       if (!knowsFascists) {
         $("knownFascists").value = "";
@@ -518,7 +525,14 @@
       const role = $("role").value;
       const knowsFascists = role === "Fascist" || (role === "Hitler" && playerCount() <= 6);
       if (!knowsFascists) return "";
+      const hitlerSeat = Number($("knownHitler").value);
+      if (role === "Fascist" && !hitlerSeat) {
+        return "Select Hitler's seat in the dropdown before starting the game.";
+      }
       const selected = parseKnownFascists();
+      if (role === "Fascist" && !selected.has(hitlerSeat)) {
+        return "Include the selected Hitler seat in the known fascist seats.";
+      }
       const expected = roleCounts().fascists;
       if (selected.has(seat("you"))) return "Do not include your own seat in the known fascist seats.";
       if (selected.size !== expected) {
