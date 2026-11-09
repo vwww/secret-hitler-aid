@@ -373,6 +373,7 @@
       if (!select || !group) return;
       group.replaceChildren();
       for (const option of select.options) {
+        if (option.value === "0" && option.textContent.trim().toLowerCase() === "select seat") continue;
         const button = document.createElement("button");
         button.type = "button";
         button.className = "choice-button" + (option.value === select.value ? " is-selected" : "");
