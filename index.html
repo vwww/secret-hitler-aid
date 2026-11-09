@@ -121,6 +121,9 @@
     .log-form .quiet-action { min-height: 34px; font-size: 12px; }
     .method { margin-top: 19px; padding: 11px 12px; border: 1px solid var(--line); color: var(--dim); font-size: 11px; }
     .method strong { color: var(--gold); font-weight: 500; }
+    .seat-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 8px; margin-top: 7px; }
+    .seat-chip { min-height: 42px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 999px; background: #111814; color: var(--ink); cursor: pointer; font: 600 12px/1 var(--sans); }
+    .seat-chip.is-selected { background: rgba(242, 123, 105, 0.12); border-color: var(--red); box-shadow: inset 0 0 0 1px rgba(242, 123, 105, 0.4); }
     .workflow-panel { margin-top: 17px; padding: 15px; border: 1px solid var(--line); border-left: 2px solid var(--green); background: #131a15; }
     .workflow-panel[hidden], .decision-inputs[hidden] { display: none; }
     .workflow-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -160,6 +163,8 @@
       .log-form .field:first-child { grid-column: 1 / -1; }
       .log-form input, .log-form select { min-height: 46px; padding: 8px; font-size: 16px; }
       .log-form .quiet-action { width: 100%; }
+      .seat-picker { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .seat-chip { min-height: 46px; font-size: 13px; }
       .choice-row { grid-template-columns: minmax(0, 1.1fr) minmax(52px, 1fr) 38px; gap: 7px; }
       .choice-row span { overflow-wrap: anywhere; }
       .result-top { flex-wrap: wrap; }
@@ -208,8 +213,17 @@
           <div class="field" hidden><label for="fasPolicies">Fascist policies</label><input id="fasPolicies" type="number" min="0" max="6" value="0"></div>
           <div class="field" hidden><label for="tracker">Election tracker</label><input id="tracker" type="number" min="0" max="3" value="0"></div>
           <div class="field" hidden><label for="lastChancellor">Last elected chancellor</label><select id="lastChancellor"></select></div>
-          <div class="field full"><label for="knownFascists">Known fascist seats (comma-separated)</label><input id="knownFascists" placeholder="e.g. 2, 5"><p class="hint" id="role-hint">Enter only roles you know with certainty. In 5-6 player games, fascists know Hitler.</p></div>
-          <div class="field full"><label for="knownHitler">Known Hitler seat (if known)</label><select id="knownHitler"></select></div>
+          <div class="field full hidden-role-field" id="knownFascistsField">
+            <label id="knownFascistsLabel" for="knownFascists">Known fascist seats</label>
+            <div id="knownFascistsPicker" class="seat-picker" aria-label="Known fascist seats"></div>
+            <input id="knownFascists" type="hidden" value="">
+            <p class="hint" id="knownFascistsHint">Tap each seat you know is a fascist.</p>
+          </div>
+          <div class="field full hidden-role-field" id="knownHitlerField">
+            <label for="knownHitler">Known Hitler seat</label>
+            <select id="knownHitler"></select>
+          </div>
+          <p class="hint field full" id="role-hint">Enter only roles you know with certainty. In 5-6 player games, fascists know Hitler.</p>
         </div>
         <button type="button" class="primary-action" id="start-game">Start fresh game <span aria-hidden="true">&#8594;</span></button>
         </div>
@@ -369,8 +383,59 @@
       return { liberals: count - fascists - 1, fascists, hitler: 1 };
     }
 
+    function renderRoleFields() {
+      const role = $("role").value;
+      const formatSeat = (number) => `Seat ${number}`;
+      const isLiberal = role === "Liberal";
+      const isFascist = role === "Fascist";
+      const isHitler = role === "Hitler";
+
+      $("knownFascistsField").hidden = isLiberal;
+      $("knownHitlerField").hidden = isLiberal || isHitler;
+      $("knownFascistsLabel").textContent = isHitler ? "Other fascist seats" : "Known fascist seats";
+      $("knownFascistsHint").textContent = isHitler
+        ? "Tap each seat you know is a fascist. Do not include your own seat."
+        : isFascist
+          ? "Tap each seat you know is a fascist. Include Hitler if you know the seat."
+          : "Tap each seat you know is a fascist.";
+
+      if (isLiberal) {
+        $("knownFascists").value = "";
+        $("knownHitler").value = "0";
+      } else if (isHitler) {
+        $("knownHitler").value = "0";
+      }
+
+      const picker = $("knownFascistsPicker");
+      picker.replaceChildren();
+      const selected = parseKnownFascists();
+      for (let number = 1; number <= playerCount(); number++) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "seat-chip" + (selected.has(number) ? " is-selected" : "");
+        button.textContent = formatSeat(number);
+        button.setAttribute("aria-pressed", String(selected.has(number)));
+        button.addEventListener("click", () => {
+          const next = new Set(parseKnownFascists());
+          if (next.has(number)) next.delete(number);
+          else next.add(number);
+          $("knownFascists").value = [...next].sort((a, b) => a - b).join(",");
+          renderAll();
+        });
+        picker.append(button);
+      }
+
+      const hint = $("role-hint");
+      hint.textContent = role === "Liberal"
+        ? "No hidden-role prompts are needed for liberals. Use public evidence and policy history to estimate the table."
+        : playerCount() <= 6
+          ? "Enter only roles you know with certainty. Fascists know Hitler in 5-6 player games."
+          : "Enter only roles you know with certainty. Fascists know Hitler; Hitler does not know the fascists.";
+    }
+
     function parseKnownFascists() {
-      return new Set($("knownFascists").value.split(/[ ,;]+/).map(Number).filter((number) => number >= 1 && number <= playerCount()));
+      const raw = $("knownFascists").value || "";
+      return new Set(raw.split(/[ ,;]+/).map(Number).filter((number) => number >= 1 && number <= playerCount()));
     }
 
     function roleEvidence() {
@@ -1041,9 +1106,6 @@
       $("lib-track").innerHTML = Array.from({ length: 5 }, (_, index) => `<i class="track-dot ${index < liberal ? "lit-l" : ""}"></i>`).join("");
       $("fas-track").innerHTML = Array.from({ length: 6 }, (_, index) => `<i class="track-dot ${index < fascist ? "lit-f" : ""}"></i>`).join("");
       $("tracker-track").innerHTML = Array.from({ length: 3 }, (_, index) => `<i class="track-dot ${index < tracker ? "lit-f" : ""}"></i>`).join("");
-      $("role-hint").textContent = playerCount() <= 6
-        ? "Enter only roles you know with certainty. Fascists know Hitler in 5-6 player games."
-        : "Enter only roles you know with certainty. Fascists know Hitler; Hitler does not know the fascists.";
     }
 
     function renderLog() {
@@ -1078,6 +1140,7 @@
     }
 
     function renderAll() {
+      renderRoleFields();
       renderWorkflow();
       updateBoard();
       renderLog();
@@ -1093,7 +1156,8 @@
 
     $("players").addEventListener("change", populateSeats);
     $("phase").addEventListener("change", () => { renderPhaseFields(); renderAll(); });
-    for (const id of ["you", "role", "president", "chancellor", "lastChancellor", "knownFascists", "knownHitler", "libPolicies", "fasPolicies", "tracker"]) {
+    $("role").addEventListener("change", () => { renderRoleFields(); renderAll(); });
+    for (const id of ["you", "president", "chancellor", "lastChancellor", "knownHitler", "libPolicies", "fasPolicies", "tracker"]) {
       $(id).addEventListener("input", renderAll);
       $(id).addEventListener("change", renderAll);
     }
