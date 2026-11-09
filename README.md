@@ -11,13 +11,13 @@ Open `index.html` in a modern browser. No installation, server, or external depe
 
 ## Use
 
-1. Set the player count, your seat and role, current phase, president, nominated chancellor, policy totals, election tracker, and last elected chancellor.
-2. Enter roles you know with certainty. For a 5-6 player game as a Fascist, select the known Hitler seat. In those games, Hitler can enter known Fascist seats.
-3. For a legislative decision, choose your office and enter the policy cards in your hand using `L` and `F` (three cards as president, two as chancellor).
-4. Add public evidence to the action log. For enacted policies and passed governments, enter both relevant seats. For votes and investigations, enter the seat being observed.
-5. Select **Find best move**. The analysis shows a recommended action, comparative regret shares, and estimated Fascist probability for each player.
+1. For a fresh game, set the player count, your seat and private role, and the starting president. Enter roles you know with certainty; Fascists know Hitler in 5-6 player games, and the Fascist team knows its members in 7-10 player games. The board starts with zero policies and an empty election tracker.
+2. Select **Start fresh game**. The page advances through nomination, government vote, legislative decisions, tracker policies, veto responses, and executive powers as you record each actual outcome.
+3. Use the recommendation when the current decision is yours. Presidents enter their three policy cards; chancellors enter their two. Other players are prompted to wait for the public result instead of receiving an irrelevant private-hand recommendation.
+4. After the table acts, choose what actually happened and select **Record and continue**. Failed elections prompt for your vote and update the tracker; three failures prompt for the top-decked policy. Policy results update the tracks and any required power.
+5. Add optional evidence such as other players' votes or investigation results in the evidence log. The guided flow records passed governments, enacted policies, and results entered in its prompts automatically.
 
-Decision phases include chancellor nomination, government vote, legislative session, veto, and executive powers (investigation, execution, or special election). Keep the board inputs current; the advisor does not automatically infer board state from the action log.
+The app cannot observe the table, count votes, or reveal hidden information. Enter actual outcomes as they happen, and confirm any recommendation against the standard rules and your current board.
 
 ## Model notes
 

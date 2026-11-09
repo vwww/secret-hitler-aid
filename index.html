@@ -105,6 +105,8 @@
     .prob.low { color: var(--blue); }
     .role-pill { color: var(--muted); font: 10px var(--mono); }
     .log { margin-top: 26px; }
+    .log-summary { padding: 11px 0; border-top: 1px solid var(--line); color: var(--muted); cursor: pointer; font: 11px var(--mono); text-transform: uppercase; }
+    .log[open] .log-summary { margin-bottom: 5px; }
     .log-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
     .log-head h3 { font: 18px var(--serif); font-weight: 400; margin: 0; }
     .log-list { list-style: none; margin: 9px 0 0; padding: 0; }
@@ -119,6 +121,19 @@
     .log-form .quiet-action { min-height: 34px; font-size: 12px; }
     .method { margin-top: 19px; padding: 11px 12px; border: 1px solid var(--line); color: var(--dim); font-size: 11px; }
     .method strong { color: var(--gold); font-weight: 500; }
+    .workflow-panel { margin-top: 17px; padding: 15px; border: 1px solid var(--line); border-left: 2px solid var(--green); background: #131a15; }
+    .workflow-panel[hidden], .decision-inputs[hidden] { display: none; }
+    .workflow-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .workflow-heading h3 { margin: 4px 0 0; font: 22px/1.1 var(--serif); font-weight: 400; }
+    .workflow-prompt { color: var(--muted); margin: 10px 0 14px; }
+    .workflow-fields { margin-top: 14px; }
+    .workflow-fields:empty { display: none; }
+    .workflow-error { margin: 10px 0 0; color: var(--red); font-size: 12px; }
+    .advance-game { width: 100%; margin-top: 15px; }
+    .workflow-panel .result { margin-top: 12px; }
+    #setup-fields > .primary-action { width: 100%; margin-top: 15px; }
+    body.game-active #setup-fields { display: none; }
+    body.game-active #recommend { display: none; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
     @media (max-width: 900px) {
       .layout { grid-template-columns: minmax(0, 1fr); }
@@ -138,7 +153,7 @@
       .field.full { grid-column: auto; }
       input, select { min-height: 46px; font-size: 16px; }
       .decision-inputs { padding: 13px; }
-      .primary-action { position: fixed; z-index: 20; right: 0; bottom: 0; left: 0; width: 100%; min-height: calc(60px + env(safe-area-inset-bottom)); margin: 0; padding: 10px 20px calc(10px + env(safe-area-inset-bottom)); border: 0; border-top: 1px solid #d6ff9a; border-radius: 0; box-shadow: 0 -8px 24px #0009; }
+      body:not(.game-active) #start-game, body.game-active .advance-game { position: fixed; z-index: 20; right: 0; bottom: 0; left: 0; width: 100%; min-height: calc(60px + env(safe-area-inset-bottom)); margin: 0; padding: 10px 20px calc(10px + env(safe-area-inset-bottom)); border: 0; border-top: 1px solid #d6ff9a; border-radius: 0; box-shadow: 0 -8px 24px #0009; }
       .quiet-action { min-height: 44px; }
       .remove-event { min-width: 44px; min-height: 44px; }
       .log-form { grid-template-columns: 1fr 1fr; }
@@ -155,6 +170,7 @@
       th:last-child, td:last-child { width: 36%; }
       th, td { padding-right: 4px; padding-left: 4px; overflow-wrap: anywhere; }
       .role-pill { font-size: 9px; }
+      .workflow-panel { padding: 13px; }
     }
   </style>
 </head>
@@ -180,28 +196,44 @@
     <div class="layout">
       <section class="column" aria-labelledby="state-title">
         <div class="section-heading"><h2 id="state-title">Game state</h2><span class="section-kicker">01 / setup</span></div>
+        <div id="setup-fields">
         <div class="form-grid">
           <div class="field"><label for="players">Players</label><select id="players"><option>5</option><option>6</option><option selected>7</option><option>8</option><option>9</option><option>10</option></select></div>
           <div class="field"><label for="you">Your seat</label><select id="you"></select></div>
           <div class="field"><label for="role">Your role</label><select id="role"><option value="Liberal">Liberal</option><option value="Fascist">Fascist</option><option value="Hitler">Hitler</option></select></div>
-          <div class="field"><label for="phase">Decision phase</label><select id="phase"><option value="nomination">Nominate chancellor</option><option value="vote">Vote on government</option><option value="legislative">Legislative session</option><option value="veto">Veto decision</option><option value="power">Executive power</option></select></div>
-          <div class="field"><label for="president">Current president</label><select id="president"></select></div>
-          <div class="field"><label for="chancellor">Nominated chancellor</label><select id="chancellor"></select></div>
-          <div class="field"><label for="libPolicies">Liberal policies</label><input id="libPolicies" type="number" min="0" max="5" value="0"></div>
-          <div class="field"><label for="fasPolicies">Fascist policies</label><input id="fasPolicies" type="number" min="0" max="6" value="0"></div>
-          <div class="field"><label for="tracker">Election tracker</label><input id="tracker" type="number" min="0" max="2" value="0"></div>
-          <div class="field"><label for="lastChancellor">Last elected chancellor</label><select id="lastChancellor"></select></div>
+          <div class="field" hidden><label for="phase">Decision phase</label><select id="phase"><option value="nomination">Nominate chancellor</option><option value="vote">Vote on government</option><option value="legislative">Legislative session</option><option value="veto">Veto decision</option><option value="power">Executive power</option></select></div>
+          <div class="field"><label for="president">Starting president</label><select id="president"></select></div>
+          <div class="field" hidden><label for="chancellor">Nominated chancellor</label><select id="chancellor"></select></div>
+          <div class="field" hidden><label for="libPolicies">Liberal policies</label><input id="libPolicies" type="number" min="0" max="5" value="0"></div>
+          <div class="field" hidden><label for="fasPolicies">Fascist policies</label><input id="fasPolicies" type="number" min="0" max="6" value="0"></div>
+          <div class="field" hidden><label for="tracker">Election tracker</label><input id="tracker" type="number" min="0" max="3" value="0"></div>
+          <div class="field" hidden><label for="lastChancellor">Last elected chancellor</label><select id="lastChancellor"></select></div>
           <div class="field full"><label for="knownFascists">Known fascist seats (comma-separated)</label><input id="knownFascists" placeholder="e.g. 2, 5"><p class="hint" id="role-hint">Enter only roles you know with certainty. In 5-6 player games, fascists know Hitler.</p></div>
-                  <div class="field full"><label for="knownHitler">Known Hitler seat (5-6 player fascist only)</label><select id="knownHitler"></select></div>
+          <div class="field full"><label for="knownHitler">Known Hitler seat (if known)</label><select id="knownHitler"></select></div>
+        </div>
+        <button type="button" class="primary-action" id="start-game">Start fresh game <span aria-hidden="true">&#8594;</span></button>
         </div>
 
-        <div class="decision-inputs">
-          <h3 id="decision-title">Current decision</h3>
+        <div class="decision-inputs" id="decision-inputs" hidden>
+          <h3 id="decision-title">Your decision</h3>
           <div id="phase-fields" class="form-grid"></div>
           <button type="button" class="primary-action recommend-button" id="recommend">Find best move <span aria-hidden="true">&#8594;</span></button>
         </div>
 
-        <div class="log">
+        <section class="workflow-panel" id="workflow-panel" hidden aria-live="polite">
+          <div class="workflow-heading">
+            <div><div class="section-kicker" id="workflow-step">LIVE GAME</div><h3 id="workflow-title">Next action</h3></div>
+            <button type="button" class="quiet-action" id="restart-game">New game</button>
+          </div>
+          <p class="workflow-prompt" id="workflow-prompt"></p>
+          <div id="workflow-advice"></div>
+          <div class="workflow-fields form-grid" id="workflow-fields"></div>
+          <p class="workflow-error" id="workflow-error" role="alert" hidden></p>
+          <button type="button" class="primary-action advance-game" id="advance-game">Record and continue <span aria-hidden="true">&#8594;</span></button>
+        </section>
+
+        <details class="log">
+          <summary class="log-summary">Optional role evidence</summary>
           <div class="log-head"><h3>Public action log</h3><button class="quiet-action" id="clear-log" type="button">Clear log</button></div>
           <div class="log-form">
             <div class="field"><label for="eventType">Evidence</label><select id="eventType"><option value="fascist-policy">Fascist policy enacted</option><option value="liberal-policy">Liberal policy enacted</option><option value="voted-failed">Voted yes on failed government</option><option value="rejected-failed">Voted no on failed government</option><option value="investigated-f">Investigation: fascist</option><option value="investigated-l">Investigation: liberal</option><option value="election-trust">Trusted government passed</option></select></div>
@@ -210,7 +242,7 @@
             <button type="button" class="quiet-action" id="add-event">Add</button>
           </div>
           <ul class="log-list" id="log-list"></ul>
-        </div>
+        </details>
       </section>
 
       <section class="column" aria-labelledby="advice-title">
@@ -230,7 +262,24 @@
 
   <script>
     const $ = (id) => document.getElementById(id);
-    const state = { events: [], lastAdvice: null };
+    const state = {
+      events: [],
+      lastAdvice: null,
+      game: {
+        active: false,
+        stage: "setup",
+        president: 1,
+        chancellor: 0,
+        lastChancellor: 0,
+        pendingPower: "",
+        specialReturn: 0,
+        specialActive: false,
+        eliminated: new Set(),
+        round: 1,
+        vetoDenied: false,
+        winner: ""
+      }
+    };
     const playerCount = () => Number($("players").value);
     const seat = (id) => Number($(id).value);
     const playerName = (number) => `Player ${number}`;
@@ -299,7 +348,7 @@
         note.textContent = "The president cannot nominate themself or the previous elected chancellor.";
         container.append(note);
       } else if (phase === "vote") {
-        container.append(phaseField("Government members", "vote-team", [["both", "Both look trustworthy"], ["president", "President looks suspicious"], ["chancellor", "Chancellor looks suspicious"], ["neither", "Both look suspicious"]]));
+        container.append(phaseField("Who looks suspicious?", "vote-team", [["neither", "Neither member"], ["president", "President"], ["chancellor", "Chancellor"], ["both", "Both members"]]));
       } else if (phase === "legislative") {
         container.append(phaseField("Your office", "office", [["president", "President: discard 1 of 3"], ["chancellor", "Chancellor: enact 1 of 2"]]));
         const cards = document.createElement("div");
@@ -333,10 +382,8 @@
       const known = parseKnownFascists();
       for (const number of known) if (number !== own) knownRoles.set(number, "Fascist");
       const count = playerCount();
-      if (count <= 6 && role === "Fascist") {
-        const hitler = Number($("knownHitler").value);
-        if (hitler && hitler !== own && !known.has(hitler)) knownRoles.set(hitler, "Hitler");
-      }
+      const hitler = Number($("knownHitler").value);
+      if (hitler && hitler !== own) knownRoles.set(hitler, "Hitler");
       if (role === "Hitler" && count <= 6) {
         for (const number of known) knownRoles.set(number, "Fascist");
       }
@@ -427,6 +474,408 @@
       return regrets.map((value) => value / regretTotal);
     }
 
+    function workflowSelect(label, id, options, placeholder = "Select what happened") {
+      const wrapper = document.createElement("div");
+      wrapper.className = "field full";
+      const labelElement = document.createElement("label");
+      labelElement.htmlFor = id;
+      labelElement.textContent = label;
+      const select = document.createElement("select");
+      select.id = id;
+      if (placeholder) {
+        const prompt = document.createElement("option");
+        prompt.value = "";
+        prompt.textContent = placeholder;
+        select.append(prompt);
+      }
+      for (const [value, text] of options) {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = text;
+        select.append(option);
+      }
+      wrapper.append(labelElement, select);
+      return wrapper;
+    }
+
+    function livingSeats() {
+      return Array.from({ length: playerCount() }, (_, index) => index + 1)
+        .filter((number) => !state.game.eliminated.has(number));
+    }
+
+    function nextPresident() {
+      const game = state.game;
+      if (game.specialActive) {
+        game.president = game.specialReturn;
+        game.specialActive = false;
+        game.specialReturn = 0;
+      } else {
+        game.president = regularNextPresident(game.president);
+      }
+      game.round += 1;
+      game.chancellor = 0;
+      game.stage = "nomination";
+    }
+
+    function regularNextPresident(current) {
+      for (let offset = 1; offset <= playerCount(); offset++) {
+        const candidate = (current - 1 + offset) % playerCount() + 1;
+        if (!state.game.eliminated.has(candidate)) return candidate;
+      }
+      return current;
+    }
+
+    function powerForFascistPolicy(policyCount) {
+      const players = playerCount();
+      if ((players >= 9 && policyCount <= 2) || (players <= 8 && policyCount === 2)) return "investigate";
+      if (policyCount === 3) return "special";
+      if (policyCount === 4 || policyCount === 5) return "execute";
+      return "";
+    }
+
+    function addEvidence(type, player, other = 0, label = "") {
+      state.events.push({
+        id: crypto.randomUUID(), type, seat: player, other,
+        label: label || ({ "fascist-policy": "F policy", "liberal-policy": "L policy", "voted-failed": "Yes / failed", "rejected-failed": "No / failed", "investigated-f": "Saw fascist", "investigated-l": "Saw liberal", "election-trust": "Passed gov't" })[type] || type
+      });
+    }
+
+    function setWinner(message) {
+      state.game.winner = message;
+      state.game.stage = "finished";
+    }
+
+    function setPhaseForStage() {
+      const game = state.game;
+      $("president").value = String(game.president);
+      $("chancellor").value = String(game.chancellor);
+      $("lastChancellor").value = String(game.lastChancellor);
+      const phaseByStage = {
+        nomination: "nomination",
+        vote: "vote",
+        "president-discard": "legislative",
+        "chancellor-policy": "legislative",
+        "veto-result": "veto",
+        power: "power"
+      };
+      const nextPhase = phaseByStage[game.stage];
+      if (nextPhase && $("phase").value !== nextPhase) {
+        $("phase").value = nextPhase;
+        renderPhaseFields();
+      }
+      if ((game.stage === "president-discard" || game.stage === "chancellor-policy") && $("office")) {
+        $("office").value = game.stage === "president-discard" ? "president" : "chancellor";
+        $("office").disabled = true;
+      }
+      if (game.stage === "veto-result" && $("veto-response")) $("veto-response").value = "unknown";
+      if (game.stage === "veto-result" && $("veto-office")) {
+        $("veto-office").value = "president";
+        $("veto-office").disabled = true;
+        $("veto-response").value = "veto";
+      }
+      if (game.stage === "power" && $("power-type")) {
+        $("power-type").value = game.pendingPower;
+        $("power-type").disabled = true;
+      }
+    }
+
+    function renderWorkflow() {
+      const game = state.game;
+      const panel = $("workflow-panel");
+      if (!game.active) {
+        panel.hidden = true;
+        $("decision-inputs").hidden = true;
+        document.body.classList.remove("game-active");
+        $("state-title").textContent = "Game state";
+        return;
+      }
+      document.body.classList.add("game-active");
+      panel.hidden = false;
+      $("state-title").textContent = "Live game";
+      setPhaseForStage();
+      const isPresident = seat("you") === game.president;
+      const isChancellor = seat("you") === game.chancellor;
+      const hasMove = game.stage === "vote" || (game.stage === "nomination" && isPresident) ||
+        (game.stage === "president-discard" && isPresident) || (game.stage === "chancellor-policy" && isChancellor) ||
+        (game.stage === "veto-result" && isPresident) || (game.stage === "power" && isPresident);
+      $("decision-inputs").hidden = !hasMove;
+      $("workflow-fields").replaceChildren();
+      $("advance-game").hidden = false;
+      const options = livingSeats().map((number) => [String(number), playerName(number)]);
+      const eligible = options.filter(([number]) => Number(number) !== game.president && Number(number) !== game.lastChancellor);
+      const mayVeto = Number($("fasPolicies").value) >= 5 && !game.vetoDenied;
+
+      if (game.stage === "nomination") {
+        $("workflow-step").textContent = `ROUND ${game.round} / PRESIDENT ${game.president}`;
+        $("workflow-title").textContent = isPresident ? "Choose a chancellor" : `Waiting for Player ${game.president} to nominate`;
+        $("workflow-prompt").textContent = isPresident
+          ? "Check the recommended candidate, nominate at the table, then record who was actually nominated."
+          : "After the president announces a nominee, select that seat here to get the vote decision.";
+        $("workflow-fields").append(workflowSelect("Nominated chancellor", "actual-chancellor", eligible));
+        $("advance-game").textContent = "Record nomination and continue →";
+      } else if (game.stage === "vote") {
+        $("workflow-step").textContent = "VOTE ON GOVERNMENT";
+        $("workflow-title").textContent = `President ${game.president} + Chancellor ${game.chancellor}`;
+        $("workflow-prompt").textContent = "Review the role estimates, cast your vote, then record the table result. If it fails, your vote is added to the evidence log.";
+        $("workflow-fields").append(
+          workflowSelect("Government passed?", "actual-vote-result", [["passed", "Yes, government elected"], ["failed", "No, government rejected"]]),
+          workflowSelect("Your vote (required if rejected)", "actual-own-vote", [["yes", "Ja"], ["no", "Nein"]])
+        );
+        if (Number($("fasPolicies").value) >= 3) {
+          $("workflow-fields").append(workflowSelect("Did Hitler's election end the game?", "hitler-election", [["no", "No / not known to be Hitler"], ["yes", "Yes, Fascists win"]], "Select the game result"));
+        }
+        $("advance-game").textContent = "Record vote and continue →";
+      } else if (game.stage === "president-discard") {
+        $("workflow-step").textContent = "LEGISLATIVE SESSION / PRESIDENT";
+        $("workflow-title").textContent = "Discard one policy";
+        $("workflow-prompt").textContent = "Enter the three cards you received. Use the recommendation, discard one at the table, then record which card you discarded.";
+        const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
+        const discardOptions = cards.map((card, index) => [String(index + 1), `Card ${index + 1} (${card})`]);
+        $("workflow-fields").append(workflowSelect("Card discarded", "actual-discard", discardOptions));
+        $("advance-game").textContent = "Record discard and continue →";
+      } else if (game.stage === "chancellor-policy") {
+        $("workflow-step").textContent = "LEGISLATIVE SESSION / CHANCELLOR";
+        $("workflow-title").textContent = "Choose the enacted policy";
+        $("workflow-prompt").textContent = `Enter the two cards you received. Follow the recommendation if appropriate, then record the enacted policy${mayVeto ? " or a veto request" : ""}.`;
+        const outcomes = [["liberal", "Liberal policy enacted"], ["fascist", "Fascist policy enacted"]];
+        if (mayVeto) outcomes.push(["veto-requested", "I requested a veto"]);
+        $("workflow-fields").append(workflowSelect("What happened?", "actual-policy", outcomes));
+        $("advance-game").textContent = "Record result and continue →";
+      } else if (game.stage === "policy-result") {
+        $("workflow-step").textContent = "LEGISLATIVE SESSION / WAITING";
+        $("workflow-title").textContent = "Record what happened";
+        $("workflow-prompt").textContent = `You are not choosing a private card now. Once the government resolves, enter the public policy${mayVeto ? " or record that a veto was requested" : ""}.`;
+        const outcomes = [["liberal", "Liberal policy enacted"], ["fascist", "Fascist policy enacted"]];
+        if (mayVeto) outcomes.push(["veto-requested", "A veto was requested"]);
+        $("workflow-fields").append(workflowSelect("Public result", "actual-policy", outcomes));
+        $("advance-game").textContent = "Record result and continue →";
+      } else if (game.stage === "veto-result") {
+        $("workflow-step").textContent = "VETO DECISION";
+        $("workflow-title").textContent = isPresident ? "Accept or reject the veto" : "Record the veto response";
+        $("workflow-prompt").textContent = isPresident
+          ? "Review the recommendation, decide at the table, then record whether the veto was approved."
+          : `The president (Player ${game.president}) decides whether to approve the request. Record the actual response.`;
+        $("workflow-fields").append(workflowSelect("Veto approved?", "actual-veto-result", [["approved", "Yes, policies vetoed"], ["denied", "No, chancellor enacted a policy"]]));
+        $("advance-game").textContent = "Record veto response →";
+      } else if (game.stage === "top-policy") {
+        $("workflow-step").textContent = "THREE FAILED ELECTIONS";
+        $("workflow-title").textContent = "Record the top-decked policy";
+        $("workflow-prompt").textContent = "The election tracker reached three. The top policy was enacted automatically; enter its public color to update the board and continue.";
+        $("workflow-fields").append(workflowSelect("Policy revealed", "top-policy-result", [["liberal", "Liberal policy"], ["fascist", "Fascist policy"]]));
+        $("advance-game").textContent = "Record policy and continue →";
+      } else if (game.stage === "power") {
+        const powerName = { investigate: "investigation", execute: "execution", special: "special election" }[game.pendingPower];
+        $("workflow-step").textContent = `FASCIST POLICY / ${powerName.toUpperCase()}`;
+        $("workflow-title").textContent = isPresident ? `Use the ${powerName}` : `Record the ${powerName}`;
+        $("workflow-prompt").textContent = isPresident
+          ? "Use the recommended target if appropriate, resolve the power at the table, then enter the result."
+          : `Player ${game.president} resolves this power. Enter the public or privately learned result you can verify.`;
+        if (game.pendingPower === "investigate") {
+          $("workflow-fields").append(workflowSelect("Player investigated", "power-result-target", options.filter(([number]) => Number(number) !== game.president)), workflowSelect("Party membership result", "power-result-party", [["fascist", "Fascist"], ["liberal", "Liberal"]]));
+        } else if (game.pendingPower === "execute") {
+          $("workflow-fields").append(workflowSelect("Player executed", "power-result-target", options.filter(([number]) => Number(number) !== game.president)), workflowSelect("Game result", "power-result-game", [["continues", "Game continues"], ["liberals-win", "Hitler was executed; Liberals win"]], ""));
+        } else {
+          $("workflow-fields").append(workflowSelect("Special-election president", "power-result-target", options.filter(([number]) => Number(number) !== game.president)));
+        }
+        $("advance-game").textContent = "Record power and continue →";
+      } else if (game.stage === "finished") {
+        $("workflow-step").textContent = "GAME OVER";
+        $("workflow-title").textContent = game.winner;
+        $("workflow-prompt").textContent = "Start a new game to clear the board and begin again.";
+        $("advance-game").hidden = true;
+        $("decision-inputs").hidden = true;
+      }
+    }
+
+    function finishFailedGovernment() {
+      const game = state.game;
+      const tracker = Number($("tracker").value) + 1;
+      $("tracker").value = String(tracker);
+      if (tracker >= 3) game.stage = "top-policy";
+      else nextPresident();
+    }
+
+    function requireWorkflowValue(id, message) {
+      const field = $(id);
+      if (field?.value) return true;
+      return showWorkflowError(id, message);
+    }
+
+    function showWorkflowError(id, message) {
+      const field = $(id);
+      $("workflow-error").textContent = message;
+      $("workflow-error").hidden = false;
+      field?.focus();
+      return false;
+    }
+
+    function enactPolicy(policy, topDecked = false) {
+      const game = state.game;
+      const previousFascistCount = Number($("fasPolicies").value);
+      $("tracker").value = "0";
+      if (policy === "liberal") {
+        $("libPolicies").value = String(Number($("libPolicies").value) + 1);
+        if (!topDecked) addEvidence("liberal-policy", game.president, game.chancellor);
+        if (Number($("libPolicies").value) >= 5) {
+          setWinner("Liberals win: five liberal policies enacted.");
+          return;
+        }
+      } else {
+        $("fasPolicies").value = String(previousFascistCount + 1);
+        if (!topDecked) addEvidence("fascist-policy", game.president, game.chancellor);
+        if (Number($("fasPolicies").value) >= 6) {
+          setWinner("Fascists win: six fascist policies enacted.");
+          return;
+        }
+      }
+      if (!topDecked && policy === "fascist") {
+        const power = powerForFascistPolicy(previousFascistCount + 1);
+        if (power) {
+          game.pendingPower = power;
+          game.stage = "power";
+          return;
+        }
+      }
+      game.pendingPower = "";
+      nextPresident();
+    }
+
+    function advanceWorkflow() {
+      const game = state.game;
+      if (game.stage === "nomination") {
+        if (!requireWorkflowValue("actual-chancellor", "Select the chancellor who was actually nominated.")) return;
+        const nominee = Number($("actual-chancellor").value);
+        game.chancellor = nominee;
+        game.stage = "vote";
+      } else if (game.stage === "vote") {
+        if (!requireWorkflowValue("actual-vote-result", "Record whether the government passed or failed.")) return;
+        const voteResult = $("actual-vote-result").value;
+        if (voteResult === "passed" && Number($("fasPolicies").value) >= 3 && !requireWorkflowValue("hitler-election", "Record whether Hitler's election ended the game.")) return;
+        if (voteResult === "failed") {
+          if (!requireWorkflowValue("actual-own-vote", "Record your Ja or Nein vote so the evidence log stays accurate.")) return;
+          const ownVote = $("actual-own-vote").value;
+          if (ownVote) addEvidence(ownVote === "yes" ? "voted-failed" : "rejected-failed", seat("you"));
+          finishFailedGovernment();
+        } else {
+          $("tracker").value = "0";
+          game.lastChancellor = game.chancellor;
+          game.vetoDenied = false;
+          addEvidence("election-trust", game.president, game.chancellor);
+          if (Number($("fasPolicies").value) >= 3 && $("hitler-election")?.value === "yes") {
+            setWinner("Fascists win: Hitler was elected chancellor after three fascist policies.");
+          } else {
+            game.stage = seat("you") === game.president ? "president-discard" : seat("you") === game.chancellor ? "chancellor-policy" : "policy-result";
+          }
+        }
+      } else if (game.stage === "president-discard") {
+        const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
+        if (cards.length !== 3) return showWorkflowError("hand", "Enter the three policy cards you received.");
+        if (!requireWorkflowValue("actual-discard", "Select the card you actually discarded.")) return;
+        game.stage = "policy-result";
+      } else if (game.stage === "chancellor-policy") {
+        const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
+        if (cards.length !== 2) return showWorkflowError("hand", "Enter the two policy cards you received.");
+        if (!requireWorkflowValue("actual-policy", "Record the enacted policy or veto request.")) return;
+        const outcome = $("actual-policy").value;
+        if (outcome === "veto-requested") {
+          game.stage = "veto-result";
+        } else if (cards.includes(outcome === "liberal" ? "L" : "F")) {
+          enactPolicy(outcome);
+        } else {
+          return showWorkflowError("actual-policy", "The enacted policy must match one of the two cards you entered.");
+        }
+      } else if (game.stage === "policy-result") {
+        if (!requireWorkflowValue("actual-policy", "Record the public policy or veto request.")) return;
+        const outcome = $("actual-policy").value;
+        if (outcome === "veto-requested") {
+          game.stage = "veto-result";
+        } else {
+          enactPolicy(outcome);
+        }
+      } else if (game.stage === "veto-result") {
+        if (!requireWorkflowValue("actual-veto-result", "Record whether the veto was approved.")) return;
+        if ($("actual-veto-result").value === "approved") {
+          const tracker = Number($("tracker").value) + 1;
+          $("tracker").value = String(tracker);
+          if (tracker >= 3) game.stage = "top-policy";
+          else nextPresident();
+        } else {
+          game.vetoDenied = true;
+          game.stage = seat("you") === game.chancellor ? "chancellor-policy" : "policy-result";
+        }
+      } else if (game.stage === "top-policy") {
+        if (!requireWorkflowValue("top-policy-result", "Select the policy revealed from the top of the deck.")) return;
+        const policy = $("top-policy-result").value;
+        enactPolicy(policy, true);
+      } else if (game.stage === "power") {
+        if (!requireWorkflowValue("power-result-target", "Select the player affected by the executive power.")) return;
+        const target = Number($("power-result-target").value);
+        if (game.pendingPower === "investigate") {
+          if (!requireWorkflowValue("power-result-party", "Enter the party membership you learned.")) return;
+          const party = $("power-result-party").value;
+          addEvidence(party === "fascist" ? "investigated-f" : "investigated-l", target);
+          game.pendingPower = "";
+          nextPresident();
+        } else if (game.pendingPower === "execute") {
+          if (!requireWorkflowValue("power-result-game", "Record whether the game continued or Hitler was executed.")) return;
+          if ($("power-result-game").value === "liberals-win") {
+            setWinner("Liberals win: Hitler was executed.");
+          } else {
+            game.eliminated.add(target);
+            game.pendingPower = "";
+            nextPresident();
+          }
+        } else if (game.pendingPower === "special") {
+          game.specialReturn = game.specialActive ? game.specialReturn : regularNextPresident(game.president);
+          game.specialActive = true;
+          game.president = target;
+          game.chancellor = 0;
+          game.pendingPower = "";
+          game.stage = "nomination";
+        }
+      }
+      renderAll();
+    }
+
+    function startGame() {
+      state.events = [];
+      state.game = {
+        active: true,
+        stage: "nomination",
+        president: seat("president") || 1,
+        chancellor: 0,
+        lastChancellor: 0,
+        pendingPower: "",
+        specialReturn: 0,
+        specialActive: false,
+        eliminated: new Set(),
+        round: 1,
+        vetoDenied: false,
+        winner: ""
+      };
+      $("libPolicies").value = "0";
+      $("fasPolicies").value = "0";
+      $("tracker").value = "0";
+      $("lastChancellor").value = "0";
+      $("phase").value = "nomination";
+      renderPhaseFields();
+      $("workflow-advice").append($("result"));
+      renderAll();
+    }
+
+    function restartGame() {
+      state.game.active = false;
+      state.game.stage = "setup";
+      state.events = [];
+      $("advice-title").parentElement.insertBefore($("result"), $("advice-title").parentElement.querySelector(".beliefs"));
+      $("libPolicies").value = "0";
+      $("fasPolicies").value = "0";
+      $("tracker").value = "0";
+      $("phase").value = "nomination";
+      renderPhaseFields();
+      renderAll();
+    }
+
     function recommendation() {
       const { beliefs, knownRoles } = enumerateBeliefs();
       const ownRole = $("role").value;
@@ -441,15 +890,18 @@
       const suspicion = (number) => beliefs[number]?.fascist ?? 0.5;
       if (phase === "nomination") {
         for (let number = 1; number <= playerCount(); number++) {
-          if (number === seat("you") || number === seat("lastChancellor")) continue;
+          if (number === seat("you") || number === seat("lastChancellor") || state.game.eliminated.has(number)) continue;
           const h = beliefs[number]?.hitler ?? 0;
           const f = suspicion(number);
           let value = ownTeam < 0 ? -(f * 9 + h * (fasPolicies >= 3 ? 100 : 1)) : f * 9 + h * (fasPolicies >= 3 ? 100 : 1);
           if (ownTeam > 0 && f > 0.5) value += 1.5;
           addChoice(playerName(number), value, `${Math.round(f * 100)}% estimated fascist; ${Math.round(h * 100)}% estimated Hitler.`);
         }
-        choices.sort((a, b) => ownTeam < 0 ? b.value - a.value : b.value - a.value);
+        if (!choices.length) return { error: "No eligible chancellor candidates remain. Check the living seats and term-limit inputs.", beliefs, knownRoles };
+        choices.sort((a, b) => b.value - a.value);
         const best = choices[0];
+        const probabilities = regretMatch(choices);
+        choices.forEach((choice, index) => choice.probability = probabilities[index]);
         return { choices, best, reason: ownTeam < 0 ? `As a liberal, favor the lowest-risk eligible candidate. ${best.reason}` : `As a fascist, favor a teammate or a high-risk candidate. ${best.reason}` };
       }
       if (phase === "vote") {
@@ -476,7 +928,7 @@
         const response = $("veto-response").value;
         const mayVeto = fasPolicies >= 5;
         const accept = ownTeam < 0 ? (tracker === 2 ? 3 : -1) : (tracker === 2 ? 2 : 1);
-        const veto = ownTeam < 0 ? (mayVeto ? 1 : -4) : (mayVeto ? (tracker === 2 ? -2 : 2) : -4);
+        const veto = ownTeam < 0 ? (mayVeto ? 1 : -4) : (mayVeto ? (tracker === 2 ? -2 : -1) : -4);
         addChoice("Accept the policies", accept, "A veto is unavailable until five fascist policies have been enacted.");
         addChoice("Veto", veto, mayVeto ? "An approved veto advances the election tracker; both players must agree." : "Veto power is not yet unlocked.");
         if (response !== "unknown") {
@@ -486,13 +938,13 @@
         const type = $("power-type").value;
         if (type === "special") {
           for (let number = 1; number <= playerCount(); number++) {
+            if (number === seat("you") || state.game.eliminated.has(number)) continue;
             const risk = suspicion(number);
             addChoice(`Nominate ${playerName(number)}`, ownTeam < 0 ? -risk * 8 : risk * 8, `Estimated fascist chance: ${Math.round(risk * 100)}%.`);
           }
         } else {
           for (let number = 1; number <= playerCount(); number++) {
-            if (number === seat("you")) continue;
-            if (number === target) continue;
+            if (number === seat("you") || state.game.eliminated.has(number)) continue;
             const belief = beliefs[number];
             const candidateValue = type === "execute"
               ? ownTeam < 0 ? belief.hitler * 100 + belief.fascist * 9 : (1 - belief.fascist) * 7 - belief.hitler * 100
@@ -511,6 +963,33 @@
     }
 
     function renderResult() {
+      if (!state.game.active) {
+        $("result").innerHTML = '<div class="result-top"><div><div class="result-label">Ready to start</div><h3>Set your seat and role, then start a fresh game.</h3></div></div><p class="reason">The advisor will show only the current decision and the outcome to record next.</p>';
+        renderBeliefs();
+        return;
+      }
+      if (state.game.active) {
+        const game = state.game;
+        const isPresident = seat("you") === game.president;
+        const isChancellor = seat("you") === game.chancellor;
+        const noMove = game.stage === "finished" || game.stage === "top-policy" || game.stage === "policy-result" ||
+          (game.stage === "nomination" && !isPresident) ||
+          (game.stage === "veto-result" && !isPresident) ||
+          (game.stage === "power" && !isPresident);
+        if (noMove) {
+          const messages = {
+            "finished": "The game has ended.",
+            "top-policy": "No individual move here. Record the automatically enacted policy below.",
+            "policy-result": "No move for you now. Record the public policy result below.",
+            "nomination": `No move for you yet. Player ${game.president} is choosing a chancellor.`,
+            "veto-result": `No move for you here. Player ${game.president} decides whether to approve the veto.`,
+            "power": `No move for you here. Player ${game.president} resolves the executive power.`
+          };
+          $("result").innerHTML = `<div class="result-top"><div><div class="result-label">Current stage</div><h3>${escapeHtml(messages[game.stage])}</h3></div></div><p class="reason">The next entry is shown in the live game panel.</p>`;
+          renderBeliefs();
+          return;
+        }
+      }
       const result = recommendation();
       const container = $("result");
       if (result.error) {
@@ -545,22 +1024,23 @@
       }
     }
 
-    function escapeHtml(value) {
-      return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
-    }
-
     function updateBoard() {
       const liberal = clamp(Number($("libPolicies").value) || 0, 0, 5);
       const fascist = clamp(Number($("fasPolicies").value) || 0, 0, 6);
-      const tracker = clamp(Number($("tracker").value) || 0, 0, 2);
-      $("board-election").textContent = `Round ${state.events.filter((event) => event.type === "election-trust" || event.type === "voted-failed").length + 1}`;
-      $("board-turn").textContent = $("phase").selectedOptions[0]?.textContent.split(":")[0] ?? "Nomination";
+      const tracker = clamp(Number($("tracker").value) || 0, 0, 3);
+      $("board-election").textContent = `Round ${state.game.active ? state.game.round : 1}`;
+      const liveTurn = {
+        nomination: "Nomination", vote: "Government vote", "president-discard": "President discards",
+        "chancellor-policy": "Chancellor policy", "policy-result": "Policy result", "veto-result": "Veto decision",
+        "top-policy": "Top-deck policy", power: "Executive power", finished: "Game over"
+      }[state.game.stage];
+      $("board-turn").textContent = state.game.active ? liveTurn : "New game";
       $("board-liberal").textContent = `${liberal} / 5`;
       $("board-fascist").textContent = `${fascist} / 6`;
       $("board-tracker").textContent = `${tracker} / 3`;
-      $("lib-track").innerHTML = Array.from({ length: 5 }, (_, i) => `<i class="track-dot ${i < liberal ? "lit-l" : ""}"></i>`).join("");
-      $("fas-track").innerHTML = Array.from({ length: 6 }, (_, i) => `<i class="track-dot ${i < fascist ? "lit-f" : ""}"></i>`).join("");
-      $("tracker-track").innerHTML = Array.from({ length: 3 }, (_, i) => `<i class="track-dot ${i < tracker ? "lit-f" : ""}"></i>`).join("");
+      $("lib-track").innerHTML = Array.from({ length: 5 }, (_, index) => `<i class="track-dot ${index < liberal ? "lit-l" : ""}"></i>`).join("");
+      $("fas-track").innerHTML = Array.from({ length: 6 }, (_, index) => `<i class="track-dot ${index < fascist ? "lit-f" : ""}"></i>`).join("");
+      $("tracker-track").innerHTML = Array.from({ length: 3 }, (_, index) => `<i class="track-dot ${index < tracker ? "lit-f" : ""}"></i>`).join("");
       $("role-hint").textContent = playerCount() <= 6
         ? "Enter only roles you know with certainty. Fascists know Hitler in 5-6 player games."
         : "Enter only roles you know with certainty. Fascists know Hitler; Hitler does not know the fascists.";
@@ -598,10 +1078,18 @@
     }
 
     function renderAll() {
+      renderWorkflow();
       updateBoard();
       renderLog();
       renderResult();
     }
+
+    $("start-game").addEventListener("click", startGame);
+    $("restart-game").addEventListener("click", restartGame);
+    $("advance-game").addEventListener("click", advanceWorkflow);
+    $("phase-fields").addEventListener("input", renderAll);
+    $("phase-fields").addEventListener("change", renderAll);
+    $("workflow-fields").addEventListener("change", () => { $("workflow-error").hidden = true; });
 
     $("players").addEventListener("change", populateSeats);
     $("phase").addEventListener("change", () => { renderPhaseFields(); renderAll(); });
