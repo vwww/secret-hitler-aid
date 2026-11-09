@@ -69,11 +69,13 @@
     select { cursor: pointer; }
     option { background: var(--panel); }
     .hint { margin: 6px 0 0; font-size: 11px; color: var(--dim); }
+    .validation-error { margin: 6px 0 0; color: var(--red); font-size: 11px; }
     .divider { border: 0; border-top: 1px solid var(--line); margin: 19px 0; }
     .decision-inputs { background: #131a15; border-left: 2px solid var(--green); padding: 15px; margin-top: 17px; }
     .decision-inputs h3 { margin: 0 0 12px; font: 17px var(--serif); font-weight: 400; }
     .primary-action { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 40px; padding: 9px 15px; border: 1px solid var(--green); color: #172012; background: var(--green); border-radius: 2px; cursor: pointer; font-weight: 650; }
     .primary-action:hover { background: #c9f69a; }
+    .primary-action:disabled { opacity: 0.45; cursor: not-allowed; }
     .quiet-action { display: inline-flex; align-items: center; justify-content: center; min-height: 34px; padding: 7px 11px; border: 1px solid var(--line); color: var(--muted); background: transparent; border-radius: 2px; cursor: pointer; }
     .quiet-action:hover { color: var(--ink); border-color: var(--muted); }
     .recommend-button { width: 100%; margin-top: 14px; }
@@ -227,6 +229,7 @@
             <div id="knownFascistsPicker" class="seat-picker" aria-label="Known fascist seats"></div>
             <input id="knownFascists" type="hidden" value="">
             <p class="hint" id="knownFascistsHint">Tap each seat you know is a fascist.</p>
+            <p class="validation-error" id="knownFascistsError" role="alert" hidden></p>
           </div>
           <div class="field full hidden-role-field" id="knownHitlerField">
             <label for="knownHitler">Known Hitler seat</label>
@@ -458,14 +461,14 @@
       $("knownFascistsHint").textContent = isHitler
         ? "Tap each seat you know is a fascist. Do not include your own seat."
         : isFascist
-          ? "Tap each seat you know is a fascist. Include Hitler if you know the seat."
+          ? "Tap each other fascist seat you know, including Hitler. Do not include your own seat."
           : "Tap each seat you know is a fascist.";
 
       if (!knowsFascists) {
         $("knownFascists").value = "";
       }
       const selected = parseKnownFascists();
-      if (isHitler) {
+      if (isHitler || isFascist) {
         selected.delete(seat("you"));
         $("knownFascists").value = [...selected].sort((a, b) => a - b).join(",");
       }
@@ -478,7 +481,7 @@
       const picker = $("knownFascistsPicker");
       picker.replaceChildren();
       for (let number = 1; number <= playerCount(); number++) {
-        if (isHitler && number === seat("you")) continue;
+        if ((isHitler || isFascist) && number === seat("you")) continue;
         const button = document.createElement("button");
         button.type = "button";
         button.className = "seat-chip" + (selected.has(number) ? " is-selected" : "");
@@ -493,6 +496,10 @@
         });
         picker.append(button);
       }
+      const selectionError = knownFascistsSelectionError();
+      $("knownFascistsError").textContent = selectionError;
+      $("knownFascistsError").hidden = !selectionError;
+      $("start-game").disabled = Boolean(selectionError);
 
       const hint = $("role-hint");
       hint.textContent = role === "Liberal"
@@ -505,6 +512,19 @@
     function parseKnownFascists() {
       const raw = $("knownFascists").value || "";
       return new Set(raw.split(/[ ,;]+/).map(Number).filter((number) => number >= 1 && number <= playerCount()));
+    }
+
+    function knownFascistsSelectionError() {
+      const role = $("role").value;
+      const knowsFascists = role === "Fascist" || (role === "Hitler" && playerCount() <= 6);
+      if (!knowsFascists) return "";
+      const selected = parseKnownFascists();
+      const expected = roleCounts().fascists;
+      if (selected.has(seat("you"))) return "Do not include your own seat in the known fascist seats.";
+      if (selected.size !== expected) {
+        return `Select exactly ${expected} other fascist seat${expected === 1 ? "" : "s"}; ${selected.size} selected.`;
+      }
+      return "";
     }
 
     function roleEvidence() {
@@ -1180,6 +1200,12 @@
           renderBeliefs();
           return;
         }
+      }
+      const roleInputError = knownFascistsSelectionError();
+      if (roleInputError) {
+        $("result").innerHTML = `<div class="result-label">Check role information</div><h3>More information needed.</h3><p class="reason">${escapeHtml(roleInputError)}</p>`;
+        $("belief-rows").replaceChildren();
+        return;
       }
       const result = recommendation();
       const container = $("result");
