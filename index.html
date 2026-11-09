@@ -107,7 +107,10 @@
     .beliefs-title h3 { margin: 0; font: 18px var(--serif); font-weight: 400; }
     .beliefs-title span { color: var(--dim); font: 10px var(--mono); }
     .table-wrap { overflow-x: auto; border-top: 1px solid var(--line); }
-    table { width: 100%; border-collapse: collapse; min-width: 380px; }
+    table { width: 100%; border-collapse: collapse; min-width: 420px; }
+    th:first-child, td:first-child { width: 28%; }
+    th:nth-child(2), td:nth-child(2) { width: 30%; }
+    th:nth-child(3), td:nth-child(3), th:nth-child(4), td:nth-child(4) { width: 21%; }
     th { text-align: left; color: var(--dim); font: 10px var(--mono); text-transform: uppercase; letter-spacing: 0; padding: 9px 6px; }
     td { padding: 9px 6px; border-top: 1px solid #273129; font-size: 12px; }
     td:last-child, th:last-child { text-align: right; }
@@ -116,6 +119,8 @@
     .prob.high { color: var(--red); }
     .prob.low { color: var(--blue); }
     .role-pill { color: var(--muted); font: 10px var(--mono); }
+    .status-pill { display: inline-block; margin-left: 5px; color: var(--red); font: 9px var(--mono); }
+    tr.is-executed { opacity: .68; }
     .log { margin-top: 26px; }
     .log-summary { padding: 11px 0; border-top: 1px solid var(--line); color: var(--muted); cursor: pointer; font: 11px var(--mono); text-transform: uppercase; }
     .log[open] .log-summary { margin-bottom: 5px; }
@@ -180,10 +185,7 @@
       .choice-row span { overflow-wrap: anywhere; }
       .result-top { flex-wrap: wrap; }
       .result h3 { font-size: 24px; }
-      table { min-width: 0; table-layout: fixed; }
-      th:first-child, td:first-child { width: 27%; }
-      th:nth-child(2), td:nth-child(2) { width: 37%; }
-      th:last-child, td:last-child { width: 36%; }
+      table { min-width: 420px; table-layout: fixed; }
       th, td { padding-right: 4px; padding-left: 4px; overflow-wrap: anywhere; }
       .role-pill { font-size: 9px; }
       .workflow-panel { padding: 13px; }
@@ -283,8 +285,8 @@
           <p class="reason">Recommendations update from role information, policy history, and the visible game state. Enter only the facts needed to evaluate the current decision.</p>
         </div>
         <div class="beliefs">
-          <div class="beliefs-title"><h3>Hidden-role estimates</h3><span>POSTERIOR P(FASCIST)</span></div>
-          <div class="table-wrap"><table><thead><tr><th>Seat</th><th>Inference</th><th>Fascist chance</th></tr></thead><tbody id="belief-rows"></tbody></table></div>
+          <div class="beliefs-title"><h3>Hidden-role estimates</h3><span>ROLE POSTERIORS</span></div>
+          <div class="table-wrap"><table><thead><tr><th>Seat</th><th>Inference</th><th>Fascist chance</th><th>Hitler chance</th></tr></thead><tbody id="belief-rows"></tbody></table></div>
         </div>
         <div class="method"><strong>Model note:</strong> This advisor updates from objective public evidence, known seats, and board state. It does not use subjective suspicion labels; it infers hidden roles from logged actions and then scores legal moves with a rule-based, regret-matching heuristic.</div>
       </section>
@@ -1157,6 +1159,7 @@
           } else if (game.pendingPower === "execute") {
             if (!requireWorkflowValue("power-result-game", "Record whether the game continued or Hitler was executed.")) return;
             if ($("power-result-game").value === "liberals-win") {
+              game.eliminated.add(target);
               setWinner("Liberals win: Hitler was executed.");
             } else {
               game.eliminated.add(target);
@@ -1352,12 +1355,16 @@
       tbody.replaceChildren();
       for (let number = 1; number <= playerCount(); number++) {
         const tr = document.createElement("tr");
+        const isExecuted = state.game.eliminated.has(number);
+        if (isExecuted) tr.className = "is-executed";
         const role = knownRoles.get(number);
         const risk = beliefs[number]?.fascist ?? 0;
+        const hitlerRisk = beliefs[number]?.hitler ?? 0;
         const cells = [
-          `<span class="player-name">${escapeHtml(playerName(number))}${number === seat("you") ? " (you)" : ""}</span>`,
+          `<span class="player-name">${escapeHtml(playerName(number))}${number === seat("you") ? " (you)" : ""}</span>${isExecuted ? '<span class="status-pill">EXECUTED</span>' : ""}`,
           `<span class="role-pill">${role ? `KNOWN ${escapeHtml(role.toUpperCase())}` : "UNRESOLVED"}</span>`,
-          `<span class="prob ${risk > .65 ? "high" : risk < .35 ? "low" : ""}">${Math.round(risk * 100)}%</span>`
+          `<span class="prob ${risk > .65 ? "high" : risk < .35 ? "low" : ""}">${Math.round(risk * 100)}%</span>`,
+          `<span class="prob ${hitlerRisk > .65 ? "high" : hitlerRisk < .35 ? "low" : ""}">${Math.round(hitlerRisk * 100)}%</span>`
         ];
         for (const content of cells) {
           const td = document.createElement("td");
