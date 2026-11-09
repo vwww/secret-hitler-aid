@@ -446,8 +446,9 @@
       const isLiberal = role === "Liberal";
       const isFascist = role === "Fascist";
       const isHitler = role === "Hitler";
+      const knowsFascists = !isLiberal && (!isHitler || playerCount() <= 6);
 
-      $("knownFascistsField").hidden = isLiberal;
+      $("knownFascistsField").hidden = !knowsFascists;
       $("knownHitlerField").hidden = isLiberal || isHitler;
       $("knownFascistsLabel").textContent = isHitler ? "Other fascist seats" : "Known fascist seats";
       $("knownFascistsHint").textContent = isHitler
@@ -456,8 +457,10 @@
           ? "Tap each seat you know is a fascist. Include Hitler if you know the seat."
           : "Tap each seat you know is a fascist.";
 
-      if (isLiberal) {
+      if (!knowsFascists) {
         $("knownFascists").value = "";
+      }
+      if (isLiberal) {
         $("knownHitler").value = "0";
       } else if (isHitler) {
         $("knownHitler").value = "0";
