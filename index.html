@@ -304,6 +304,7 @@
         chancellor: 0,
         lastChancellor: 0,
         pendingPower: "",
+        pendingPolicy: "",
         specialReturn: 0,
         specialActive: false,
         eliminated: new Set(),
@@ -785,6 +786,7 @@
       }
       game.round += 1;
       game.chancellor = 0;
+      game.pendingPolicy = "";
       game.stage = "nomination";
     }
 
@@ -918,8 +920,13 @@
       } else if (game.stage === "policy-result") {
         $("workflow-step").textContent = "LEGISLATIVE SESSION / WAITING";
         $("workflow-title").textContent = "Record what happened";
-        $("workflow-prompt").textContent = `You are not choosing a private card now. Once the government resolves, enter the public policy${mayVeto ? " or record that a veto was requested" : ""}.`;
-        const outcomes = [["liberal", "Liberal policy enacted"], ["fascist", "Fascist policy enacted"]];
+        const knownPolicyName = game.pendingPolicy === "liberal" ? "Liberal" : "Fascist";
+        $("workflow-prompt").textContent = game.pendingPolicy
+          ? `Both remaining cards are ${knownPolicyName}. Record whether a veto was requested; otherwise the policy color is already known.`
+          : `You are not choosing a private card now. Once the government resolves, enter the public policy${mayVeto ? " or record that a veto was requested" : ""}.`;
+        const outcomes = game.pendingPolicy
+          ? [[game.pendingPolicy, `${knownPolicyName} policy enacted`]]
+          : [["liberal", "Liberal policy enacted"], ["fascist", "Fascist policy enacted"]];
         if (mayVeto) outcomes.push(["veto-requested", "A veto was requested"]);
         $("workflow-fields").append(workflowSelect("Public result", "actual-policy", outcomes));
         $("advance-game").textContent = "Record result and continue →";
@@ -986,6 +993,7 @@
 
     function enactPolicy(policy, topDecked = false) {
       const game = state.game;
+      game.pendingPolicy = "";
       const previousFascistCount = Number($("fasPolicies").value);
       $("tracker").value = "0";
       if (policy === "liberal") {
@@ -1045,8 +1053,24 @@
       } else if (game.stage === "president-discard") {
         const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
         if (cards.length !== 3) return showWorkflowError("hand", "Enter the three policy cards you received.");
-        if (new Set(cards).size > 1 && !requireWorkflowValue("actual-discard", "Select the card you actually discarded.")) return;
-        game.stage = "policy-result";
+        const hasDiscardChoice = new Set(cards).size > 1;
+        if (hasDiscardChoice && !requireWorkflowValue("actual-discard", "Select the card you actually discarded.")) return;
+        const discardedCard = hasDiscardChoice ? ($("actual-discard").value === "liberal" ? "L" : "F") : cards[0];
+        const remainingCards = [...cards];
+        remainingCards.splice(remainingCards.indexOf(discardedCard), 1);
+        if (remainingCards[0] === remainingCards[1]) {
+          const knownPolicy = remainingCards[0] === "L" ? "liberal" : "fascist";
+          const mayVeto = Number($("fasPolicies").value) >= 5 && !game.vetoDenied;
+          if (mayVeto) {
+            game.pendingPolicy = knownPolicy;
+            game.stage = "policy-result";
+          } else {
+            enactPolicy(knownPolicy);
+          }
+        } else {
+          game.pendingPolicy = "";
+          game.stage = "policy-result";
+        }
       } else if (game.stage === "chancellor-policy") {
         const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
         if (cards.length !== 2) return showWorkflowError("hand", "Enter the two policy cards you received.");
@@ -1066,18 +1090,20 @@
         if (outcome === "veto-requested") {
           game.stage = "veto-result";
         } else {
-          enactPolicy(outcome);
+          enactPolicy(game.pendingPolicy || outcome);
         }
       } else if (game.stage === "veto-result") {
         if (!requireWorkflowValue("actual-veto-result", "Record whether the veto was approved.")) return;
         if ($("actual-veto-result").value === "approved") {
+          game.pendingPolicy = "";
           const tracker = Number($("tracker").value) + 1;
           $("tracker").value = String(tracker);
           if (tracker >= 3) game.stage = "top-policy";
           else nextPresident();
         } else {
           game.vetoDenied = true;
-          game.stage = seat("you") === game.chancellor ? "chancellor-policy" : "policy-result";
+          if (game.pendingPolicy) enactPolicy(game.pendingPolicy);
+          else game.stage = seat("you") === game.chancellor ? "chancellor-policy" : "policy-result";
         }
       } else if (game.stage === "top-policy") {
         if (!requireWorkflowValue("top-policy-result", "Select the policy revealed from the top of the deck.")) return;
@@ -1122,6 +1148,7 @@
         chancellor: 0,
         lastChancellor: 0,
         pendingPower: "",
+        pendingPolicy: "",
         specialReturn: 0,
         specialActive: false,
         eliminated: new Set(),
