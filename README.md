@@ -23,4 +23,22 @@ The app cannot observe the table, count votes, or reveal hidden information. Ent
 
 Role estimates enumerate assignments consistent with the standard role counts and roles entered as certain, then weight assignments using logged evidence, including each revealed Ja/Nein vote and the election outcome. Votes by other players update estimates; your own vote is logged but does not independently update hidden-role beliefs because your role is already known and no calibrated model of your voting strategy is available. Recommendations rank available choices with hand-authored strategic utilities and show relative score shares.
 
-This is a lightweight, rule-based advisor, not a full-game Counterfactual Regret Minimization solver. It cannot guarantee optimal or near-optimal play: it has no full-game simulator, learned opponent policy, or empirical calibration of its vote-evidence weights. Role probabilities are estimates, and move score shares are not win probabilities. Confirm legal actions against the table's rules and current board state.
+The phone can load a trained MCCFR policy, but this is an experimental compact agent-form approximation, not a proven full-game equilibrium solver. It cannot guarantee optimal or near-optimal play. The policy lookup currently applies to exact information states for your own turns; other-player role-conditioned advice and unmatched states use the heuristic. Role probabilities are estimates, and strategy weights or heuristic score shares are not win probabilities. Confirm legal actions against the table's rules and current board state.
+
+## Offline engine
+
+The pure-JavaScript game kernel is in `offline/game-engine.mjs`; it exposes state transitions, legal actions, per-player observations, and terminal team utility. Run all simulator and trainer tests with Node.js 20 or newer:
+
+```sh
+node --test offline/game-engine.test.mjs offline/train-cfr.test.mjs
+```
+
+Train an approximate external-sampling MCCFR policy offline for all player counts and export the colocated compressed `strategy.json.gz` used by the page:
+
+```sh
+node offline/train-cfr.mjs --players=all --iterations=25 --workers=4 --output=strategy.json.gz
+```
+
+The trainer uses worker threads across player counts and gzip-compresses `.gz` output. On a hosted HTTP(S) page, `index.html` automatically fetches and decompresses the adjacent `strategy.json.gz`. Local `file://` pages cannot auto-fetch neighboring files due to browser security, so host the page for the demo. The phone performs a compact observation-key lookup; unmatched information states fall back to the heuristic. Low iteration counts produce sparse tables, so exact lookups may be uncommon. Increase `--iterations` for better coverage, and adjust `--workers` to match the machine.
+
+This trainer uses a compact, imperfect-recall abstraction and shared team utility. The strategy is approximate and should be evaluated with larger self-play runs before relying on it.

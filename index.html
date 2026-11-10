@@ -91,6 +91,8 @@
     .vote-record-buttons .choice-button { min-height: 40px; }
     .advance-game:disabled { opacity: 0.45; cursor: not-allowed; }
     .result { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 18px; }
+    .policy-import { margin: 14px 0; padding: 11px 12px; border-left: 2px solid var(--blue); background: #131a15; }
+    .policy-import input { margin-top: 4px; }
     .result-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
     .result-label { color: var(--green); font: 10px var(--mono); text-transform: uppercase; letter-spacing: 0; }
     .card-picker { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
@@ -297,6 +299,10 @@
 
       <section class="column" aria-labelledby="advice-title">
         <div class="section-heading"><h2 id="advice-title">Decision analysis</h2><span class="section-kicker">02 / recommendation</span></div>
+        <div class="policy-import">
+          <strong>Offline MCCFR policy</strong>
+          <p class="hint" id="strategy-status" role="status">Loading strategy.json.gz…</p>
+        </div>
         <div class="result" aria-live="polite" id="result">
           <div class="result-top"><div><div class="result-label">Ready when you are</div><h3>Enter the current state, then score the move.</h3></div></div>
           <p class="reason">Recommendations update from role information, policy history, and the visible game state. Enter only the facts needed to evaluate the current decision.</p>
@@ -305,7 +311,7 @@
           <div class="beliefs-title"><h3>Hidden-role estimates</h3><span>ROLE POSTERIORS</span></div>
           <div class="table-wrap"><table><thead><tr><th>Seat</th><th>Inference</th><th>Fascist chance</th><th>Hitler chance</th></tr></thead><tbody id="belief-rows"></tbody></table></div>
         </div>
-        <div class="method"><strong>Model note:</strong> Role estimates enumerate assignments from known roles and public evidence. Every revealed vote is logged; other players' votes update estimates, while your own ballot is not treated as hidden-role evidence because your role is already known. Vote weights and move scores are heuristic, not a calibrated full-game CFR solver; score shares are not win probabilities or guarantees of optimal play.</div>
+        <div class="method"><strong>Model note:</strong> Role estimates enumerate assignments from known roles and public evidence. Loaded MCCFR policies cover only trained information states; uncovered states use the heuristic. Other players' revealed votes update estimates, while your own ballot is logged but not treated as hidden-role evidence. Strategy weights and heuristic score shares are not win probabilities or guarantees of optimal play.</div>
       </section>
     </div>
   </main>
@@ -316,6 +322,7 @@
       events: [],
       lastAdvice: null,
       playerNames: [],
+      strategyPolicy: null,
       game: {
         active: false,
         stage: "setup",
@@ -1315,7 +1322,107 @@
       renderAll();
     }
 
+    function offlineObservationKey(actorSeat) {
+      const game = state.game;
+      const stage = game.stage === "veto-result" ? "veto-decision" : game.stage;
+      const { knownRoles } = enumerateBeliefs();
+      const roleKnowledge = [...knownRoles.entries()]
+        .sort(([left], [right]) => left - right)
+        .map(([number, role]) => [String(number), String(role).toLowerCase()]);
+      const hand = (stage === "president-discard" || stage === "chancellor-policy")
+        ? ($("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [])
+        : [];
+      const observation = JSON.stringify({
+        version: 2,
+        players: playerCount(),
+        seat: actorSeat,
+        roleKnowledge,
+        stage,
+        president: game.president,
+        lastPresident: game.lastPresident,
+        lastChancellor: game.lastChancellor,
+        chancellor: game.chancellor,
+        liberalPolicies: Number($("libPolicies").value),
+        fascistPolicies: Number($("fasPolicies").value),
+        electionTracker: Number($("tracker").value),
+        vetoDenied: game.vetoDenied,
+        eliminated: [...game.eliminated].sort((a, b) => a - b),
+        pendingPower: game.pendingPower,
+        hand
+      });
+      let first = 0xcbf29ce484222325n;
+      let second = 0x84222325cbf29ce4n;
+      for (let index = 0; index < observation.length; index++) {
+        const code = BigInt(observation.charCodeAt(index));
+        first = BigInt.asUintN(64, (first ^ code) * 0x100000001b3n);
+        second = BigInt.asUintN(64, (second ^ (code + BigInt(index & 255))) * 0x100000001b3n);
+      }
+      return first.toString(16).padStart(16, "0") + second.toString(16).padStart(16, "0");
+    }
+
+    function offlineLegalActions(actorSeat) {
+      const game = state.game;
+      if (game.stage === "nomination") return eligibleChancellors().map((chancellor) => ({ type: "nominate", chancellor }));
+      if (game.stage === "vote") return [{ type: "vote", vote: "yes" }, { type: "vote", vote: "no" }];
+      if (game.stage === "president-discard") return [0, 1, 2].map((index) => ({ type: "discard", index }));
+      if (game.stage === "chancellor-policy") {
+        const hand = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
+        const actions = hand.map((_, index) => ({ type: "enact", index }));
+        if (Number($("fasPolicies").value) >= 5 && !game.vetoDenied) actions.push({ type: "veto" });
+        return actions;
+      }
+      if (game.stage === "veto-result") return [true, false].map((approved) => ({ type: "veto-decision", approved }));
+      if (game.stage === "power") return livingSeats().filter((number) => number !== game.president).map((target) => ({ type: "power", target }));
+      return [];
+    }
+
+    function offlineActionName(action, actorSeat) {
+      if (action.type === "nominate") return playerName(action.chancellor);
+      if (action.type === "vote") return action.vote === "yes" ? "Vote Ja" : "Vote Nein";
+      if (action.type === "discard") {
+        const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
+        return `Discard ${cards[action.index] === "L" ? "Liberal" : "Fascist"}`;
+      }
+      if (action.type === "enact") {
+        const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
+        return `Enact ${cards[action.index] === "L" ? "Liberal" : "Fascist"}`;
+      }
+      if (action.type === "veto") return "Request veto";
+      if (action.type === "veto-decision") return action.approved ? "Approve veto" : "Reject veto";
+      if (action.type === "power") {
+        const label = state.game.pendingPower === "execute" ? "Execute" : state.game.pendingPower === "special" ? "Nominate" : "Investigate";
+        return `${label} ${playerName(action.target)}`;
+      }
+      return `${playerName(actorSeat)}: ${action.type}`;
+    }
+
+    function offlinePolicyRecommendation(actorRole, actorSeat) {
+      const policy = state.strategyPolicy;
+      if (!policy || !state.game.active || actorSeat !== seat("you") || actorRole !== $("role").value) return null;
+      const countPolicy = policy.policies?.[String(playerCount())];
+      if (!countPolicy) return null;
+      const entry = countPolicy.policy?.[offlineObservationKey(actorSeat)];
+      const actions = offlineLegalActions(actorSeat);
+      if (!Array.isArray(entry?.actions) || entry.actions.length !== actions.length) return null;
+      const { beliefs, knownRoles } = enumerateBeliefs();
+      const choices = actions.map((action, index) => {
+        const probability = entry.actions[index];
+        return { name: offlineActionName(action, actorSeat), value: probability, scoreShare: probability, probability };
+      }).filter((choice) => choice.probability > 0).sort((left, right) => right.probability - left.probability);
+      if (!choices.length) return null;
+      return {
+        choices,
+        best: choices[0],
+        reason: `Approximate MCCFR policy lookup for ${playerCount()} players (${entry.visits} training visits for this information set).`,
+        strategyKind: "mccfr",
+        beliefs,
+        knownRoles
+      };
+    }
+
     function recommendation(actorRole = $("role").value, actorSeat = seat("you")) {
+      const offlineRecommendation = offlinePolicyRecommendation(actorRole, actorSeat);
+      if (offlineRecommendation) return offlineRecommendation;
       const { beliefs, knownRoles } = enumerateBeliefs();
       const ownRole = actorRole;
       const ownTeam = ownRole === "Liberal" ? -1 : 1;
@@ -1467,7 +1574,8 @@
       const bestMoves = equallyBestChoices(result);
       const bestMoveShare = bestMoves.reduce((sum, choice) => sum + (choice.scoreShare ?? 0), 0);
       const bestMoveLabel = bestMoves.map((choice) => choice.name).join(" / ");
-      container.innerHTML = `<div class="result-top"><div><div class="result-label">${bestMoves.length > 1 ? "Equal best moves" : "Recommended"} / ${escapeHtml(phaseName)}</div><h3>${escapeHtml(bestMoveLabel)}</h3></div><div class="confidence">${Math.round(bestMoveShare * 100)}% score share</div></div><p class="reason">${escapeHtml(result.reason)}</p><p class="reason">Evidence basis: ${knownCount} known seats, ${state.events.length} logged public events, board state from policy tracks and current government.</p><div class="choice-list">${result.choices.map((choice, index) => `<div class="choice-row ${index === 0 ? "selected" : ""}"><span>${escapeHtml(choice.name)}</span><div class="bar"><i style="width:${Math.round((choice.scoreShare ?? 0) * 100)}%"></i></div><b>${Math.round((choice.scoreShare ?? 0) * 100)}%</b></div>`).join("")}</div>`;
+      const scoreLabel = result.strategyKind === "mccfr" ? "MCCFR strategy weight" : "Heuristic score share";
+      container.innerHTML = `<div class="result-top"><div><div class="result-label">${bestMoves.length > 1 ? "Equal best moves" : "Recommended"} / ${escapeHtml(phaseName)}</div><h3>${escapeHtml(bestMoveLabel)}</h3></div><div class="confidence">${Math.round(bestMoveShare * 100)}% ${scoreLabel}</div></div><p class="reason">${escapeHtml(result.reason)}</p><p class="reason">Evidence basis: ${knownCount} known seats, ${state.events.length} logged public events, board state from policy tracks and current government.</p><div class="choice-list">${result.choices.map((choice, index) => `<div class="choice-row ${index === 0 ? "selected" : ""}"><span>${escapeHtml(choice.name)}</span><div class="bar"><i style="width:${Math.round((choice.scoreShare ?? 0) * 100)}%"></i></div><b>${Math.round((choice.scoreShare ?? 0) * 100)}%</b></div>`).join("")}</div>`;
       renderBeliefs(result.beliefs, result.knownRoles);
     }
 
@@ -1556,6 +1664,33 @@
       renderResult();
     }
 
+    function installStrategyPolicy(policy, sourceName) {
+      if (policy.schemaVersion !== 3 || policy.algorithm !== "external-sampling-mccfr-agent-form" || policy.keyAlgorithm !== "dual-fnv1a-128-v1" || !policy.policies || !policy.players?.length) {
+        throw new Error("This is not a supported MCCFR policy file.");
+      }
+      state.strategyPolicy = policy;
+      $("strategy-status").textContent = `${sourceName} loaded for ${policy.players.join(", ")} players (${policy.iterationsPerPlayerCount} iterations each). Exact known states use MCCFR; unmatched states use the heuristic.`;
+      renderResult();
+    }
+
+    async function autoLoadStrategyPolicy() {
+      if (!location.protocol.startsWith("http")) {
+        $("strategy-status").textContent = "Host this page over HTTP(S) to auto-load the compressed CFR policy.";
+        return;
+      }
+      try {
+        if (typeof DecompressionStream !== "function") throw new Error("This browser does not support gzip decompression.");
+        const response = await fetch("./strategy.json.gz", { cache: "no-cache" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const compressed = await response.arrayBuffer();
+        const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("gzip"));
+        const json = await new Response(stream).text();
+        installStrategyPolicy(JSON.parse(json), "strategy.json.gz");
+      } catch (error) {
+        $("strategy-status").textContent = `Could not auto-load strategy.json.gz (${error.message}).`;
+      }
+    }
+
     $("start-game").addEventListener("click", startGame);
     $("restart-game").addEventListener("click", restartGame);
     $("advance-game").addEventListener("click", advanceWorkflow);
@@ -1640,6 +1775,7 @@
     $("clear-log").addEventListener("click", () => { state.events = []; renderAll(); });
 
     populateSeats();
+    autoLoadStrategyPolicy();
   </script>
 </body>
 </html>
