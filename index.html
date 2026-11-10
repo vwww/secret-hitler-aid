@@ -745,6 +745,12 @@
       return regrets.map((value) => value / regretTotal);
     }
 
+    function equallyBestChoices(result) {
+      if (!result.choices?.length) return [];
+      const topValue = result.choices[0].value;
+      return result.choices.filter((choice) => Math.abs(choice.value - topValue) < 1e-9);
+    }
+
     function workflowSelect(label, id, options, placeholder = "Select what happened") {
       return choiceButtonGroup(label, id, options, "");
     }
@@ -1366,7 +1372,9 @@
           ].filter(([, probability]) => probability > 0);
       const rows = possibleRoles.map(([role, probability]) => {
         const result = recommendation(role, actorSeat);
-        return `<div class="role-move-row"><span class="role-pill">${escapeHtml(role.toUpperCase())} · ${Math.round(probability * 100)}%</span><div><strong>${escapeHtml(result.error ? "No legal move" : result.best.name)}</strong><p>${escapeHtml(result.error || result.reason)}</p></div></div>`;
+        const bestMoves = equallyBestChoices(result);
+        const moveLabel = result.error ? "No legal move" : bestMoves.map((choice) => choice.name).join(" / ");
+        return `<div class="role-move-row"><span class="role-pill">${escapeHtml(role.toUpperCase())} · ${Math.round(probability * 100)}%</span><div><strong>${escapeHtml(moveLabel)}</strong><p>${escapeHtml(result.error || result.reason)}</p></div></div>`;
       }).join("");
       return `<div class="role-move-list"><h4>Best move for ${escapeHtml(playerName(actorSeat))} by possible role</h4>${rows}</div>`;
     }
@@ -1416,7 +1424,10 @@
       }
       const knownCount = [...result.knownRoles.values()].filter((value) => value !== undefined && value !== null && value !== "").length;
       const phaseName = $("phase").selectedOptions[0].textContent;
-      container.innerHTML = `<div class="result-top"><div><div class="result-label">Recommended / ${escapeHtml(phaseName)}</div><h3>${escapeHtml(result.best.name)}</h3></div><div class="confidence">${Math.round((result.best.probability ?? 0) * 100)}% regret share</div></div><p class="reason">${escapeHtml(result.reason)}</p><p class="reason">Evidence basis: ${knownCount} known seats, ${state.events.length} logged public events, board state from policy tracks and current government.</p><div class="choice-list">${result.choices.map((choice, index) => `<div class="choice-row ${index === 0 ? "selected" : ""}"><span>${escapeHtml(choice.name)}</span><div class="bar"><i style="width:${Math.round((choice.probability ?? 0) * 100)}%"></i></div><b>${Math.round((choice.probability ?? 0) * 100)}%</b></div>`).join("")}</div>`;
+      const bestMoves = equallyBestChoices(result);
+      const bestMoveShare = bestMoves.reduce((sum, choice) => sum + (choice.probability ?? 0), 0);
+      const bestMoveLabel = bestMoves.map((choice) => choice.name).join(" / ");
+      container.innerHTML = `<div class="result-top"><div><div class="result-label">${bestMoves.length > 1 ? "Equal best moves" : "Recommended"} / ${escapeHtml(phaseName)}</div><h3>${escapeHtml(bestMoveLabel)}</h3></div><div class="confidence">${Math.round(bestMoveShare * 100)}% regret share</div></div><p class="reason">${escapeHtml(result.reason)}</p><p class="reason">Evidence basis: ${knownCount} known seats, ${state.events.length} logged public events, board state from policy tracks and current government.</p><div class="choice-list">${result.choices.map((choice, index) => `<div class="choice-row ${index === 0 ? "selected" : ""}"><span>${escapeHtml(choice.name)}</span><div class="bar"><i style="width:${Math.round((choice.probability ?? 0) * 100)}%"></i></div><b>${Math.round((choice.probability ?? 0) * 100)}%</b></div>`).join("")}</div>`;
       renderBeliefs(result.beliefs, result.knownRoles);
     }
 
