@@ -1,4 +1,4 @@
-# Secret Hitler Bayesian CFR Advisor (LLM-generated)
+# Secret Hitler Bayesian Strategy Advisor (LLM-generated)
 
 A standalone, client-side decision aid for standard Secret Hitler games with 5-10 players. It estimates hidden roles from known information and logged actions, then recommends a move for the current decision phase.
 
@@ -14,13 +14,13 @@ Open `index.html` in a modern browser. No installation, server, or external depe
 1. For a fresh game, set the player count, your seat and private role, and the starting president. Optionally enter names in the **Player names** section; you can also edit them during the game. Enter roles you know with certainty; Fascists know Hitler in 5-6 player games, and the Fascist team knows its members in 7-10 player games. The board starts with zero policies and an empty election tracker.
 2. Select **Start fresh game**. The page advances through nomination, government vote, legislative decisions, tracker policies, veto responses, and executive powers as you record each actual outcome.
 3. Use the recommendation when the current decision is yours. Presidents enter their three policy cards; chancellors enter their two. Other players are prompted to wait for the public result instead of receiving an irrelevant private-hand recommendation.
-4. After the table acts, choose what actually happened and select **Record and continue**. Failed elections prompt for your vote and update the tracker; three failures prompt for the top-decked policy. Policy results update the tracks and any required power.
-5. Add optional evidence such as other players' votes or investigation results in the evidence log. The guided flow records passed governments, enacted policies, and results entered in its prompts automatically.
+4. After each government vote, record whether it passed and enter every living player's revealed Ja/Nein ballot. The app logs vote evidence using different weights for passed and failed governments. At three failed elections, enter the top-decked policy. Policy results update the tracks and any required power.
+5. Add optional evidence such as investigation results in the evidence log. The guided flow records ballots, passed governments, enacted policies, and results entered in its prompts automatically.
 
 The app cannot observe the table, count votes, or reveal hidden information. Enter actual outcomes as they happen, and confirm any recommendation against the standard rules and your current board.
 
 ## Model notes
 
-Role estimates enumerate assignments consistent with the standard role counts and roles entered as certain, then weight assignments using logged evidence. Recommendations use hand-authored strategic utilities and regret matching to compare available choices.
+Role estimates enumerate assignments consistent with the standard role counts and roles entered as certain, then weight assignments using logged evidence, including each revealed Ja/Nein vote and the election outcome. Votes by other players update estimates; your own vote is logged but does not independently update hidden-role beliefs because your role is already known and no calibrated model of your voting strategy is available. Recommendations rank available choices with hand-authored strategic utilities and show relative score shares.
 
-This is a lightweight, rule-based advisor, not a full-game Counterfactual Regret Minimization solver or a guarantee of optimal play. Its probabilities depend on the evidence entered and should be treated as estimates, not facts. Confirm legal actions against the table's rules and current board state.
+This is a lightweight, rule-based advisor, not a full-game Counterfactual Regret Minimization solver. It cannot guarantee optimal or near-optimal play: it has no full-game simulator, learned opponent policy, or empirical calibration of its vote-evidence weights. Role probabilities are estimates, and move score shares are not win probabilities. Confirm legal actions against the table's rules and current board state.

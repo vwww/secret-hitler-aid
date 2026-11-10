@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#101513">
-  <title>Secret Hitler | Bayesian CFR Advisor</title>
+  <title>Secret Hitler | Bayesian Strategy Advisor</title>
   <style>
     :root {
       color-scheme: dark;
@@ -84,6 +84,11 @@
     .choice-button { min-width: 0; min-height: 46px; padding: 7px; border: 1px solid var(--line); background: #111814; color: var(--ink); border-radius: 2px; cursor: pointer; font-weight: 600; line-height: 1.2; }
     .choice-button:disabled { opacity: .4; cursor: not-allowed; }
     .choice-button.is-selected { background: rgba(183, 238, 120, 0.12); border-color: var(--green); color: var(--green); }
+    .vote-record-list { display: grid; gap: 8px; margin-top: 9px; }
+    .vote-record-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(150px, .7fr); gap: 10px; align-items: center; padding-top: 8px; border-top: 1px solid var(--line); }
+    .vote-record-name { color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
+    .vote-record-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+    .vote-record-buttons .choice-button { min-height: 40px; }
     .advance-game:disabled { opacity: 0.45; cursor: not-allowed; }
     .result { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 18px; }
     .result-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
@@ -281,7 +286,7 @@
           <summary class="log-summary">Optional role evidence</summary>
           <div class="log-head"><h3>Public action log</h3><button class="quiet-action" id="clear-log" type="button">Clear log</button></div>
           <div class="log-form">
-            <div class="field"><label for="eventType">Evidence</label><select id="eventType"><option value="fascist-policy">Fascist policy enacted</option><option value="liberal-policy">Liberal policy enacted</option><option value="voted-failed">Voted yes on failed government</option><option value="rejected-failed">Voted no on failed government</option><option value="investigated-f">Investigation: fascist</option><option value="investigated-l">Investigation: liberal</option><option value="election-trust">Trusted government passed</option></select></div>
+            <div class="field"><label for="eventType">Evidence</label><select id="eventType"><option value="fascist-policy">Fascist policy enacted</option><option value="liberal-policy">Liberal policy enacted</option><option value="vote-yes-passed">Voted yes on passed government</option><option value="vote-no-passed">Voted no on passed government</option><option value="vote-yes-failed">Voted yes on failed government</option><option value="vote-no-failed">Voted no on failed government</option><option value="investigated-f">Investigation: fascist</option><option value="investigated-l">Investigation: liberal</option><option value="election-trust">Trusted government passed</option></select></div>
             <div class="field"><label id="eventSeat-label">Seat</label><select class="sr-only" id="eventSeat" aria-hidden="true" tabindex="-1"></select><div class="choice-button-group select-button-group" id="eventSeat-buttons" role="group" aria-labelledby="eventSeat-label"></div></div>
             <div class="field"><label id="eventOther-label">Other seat</label><select class="sr-only" id="eventOther" aria-hidden="true" tabindex="-1"></select><div class="choice-button-group select-button-group" id="eventOther-buttons" role="group" aria-labelledby="eventOther-label"></div></div>
             <button type="button" class="quiet-action" id="add-event">Add</button>
@@ -300,7 +305,7 @@
           <div class="beliefs-title"><h3>Hidden-role estimates</h3><span>ROLE POSTERIORS</span></div>
           <div class="table-wrap"><table><thead><tr><th>Seat</th><th>Inference</th><th>Fascist chance</th><th>Hitler chance</th></tr></thead><tbody id="belief-rows"></tbody></table></div>
         </div>
-        <div class="method"><strong>Model note:</strong> This advisor updates from objective public evidence, known seats, and board state. It does not use subjective suspicion labels; it infers hidden roles from logged actions and then scores legal moves with a rule-based, regret-matching heuristic.</div>
+        <div class="method"><strong>Model note:</strong> Role estimates enumerate assignments from known roles and public evidence. Every revealed vote is logged; other players' votes update estimates, while your own ballot is not treated as hidden-role evidence because your role is already known. Vote weights and move scores are heuristic, not a calibrated full-game CFR solver; score shares are not win probabilities or guarantees of optimal play.</div>
       </section>
     </div>
   </main>
@@ -318,6 +323,7 @@
         chancellor: 0,
         lastPresident: 0,
         lastChancellor: 0,
+        votes: new Map(),
         pendingPower: "",
         pendingPolicy: "",
         specialReturn: 0,
@@ -665,10 +671,14 @@
         } else if (event.type === "liberal-policy") {
           scores[event.seat] -= 0.62;
           scores[event.other] -= 0.62;
-        } else if (event.type === "voted-failed") {
+        } else if (event.type === "voted-failed" || event.type === "vote-yes-failed") {
           scores[event.seat] += 0.7;
-        } else if (event.type === "rejected-failed") {
+        } else if (event.type === "rejected-failed" || event.type === "vote-no-failed") {
           scores[event.seat] -= 0.25;
+        } else if (event.type === "vote-yes-passed") {
+          scores[event.seat] += 0.15;
+        } else if (event.type === "vote-no-passed") {
+          scores[event.seat] -= 0.15;
         } else if (event.type === "investigated-f") {
           knownRoles.set(event.seat, "Fascist");
         } else if (event.type === "investigated-l") {
@@ -737,12 +747,12 @@
       return { beliefs, knownRoles, scores };
     }
 
-    function regretMatch(choices) {
+    function relativeScoreShares(choices) {
       const baseline = choices.reduce((sum, choice) => sum + choice.value, 0) / choices.length;
-      const regrets = choices.map((choice) => Math.max(0, choice.value - baseline));
-      const regretTotal = regrets.reduce((sum, value) => sum + value, 0);
-      if (!regretTotal) return choices.map(() => 1 / choices.length);
-      return regrets.map((value) => value / regretTotal);
+      const advantages = choices.map((choice) => Math.max(0, choice.value - baseline));
+      const totalAdvantage = advantages.reduce((sum, value) => sum + value, 0);
+      if (!totalAdvantage) return choices.map(() => 1 / choices.length);
+      return advantages.map((value) => value / totalAdvantage);
     }
 
     function equallyBestChoices(result) {
@@ -791,6 +801,31 @@
       return wrapper;
     }
 
+    function renderVoteRecorder(voteResult) {
+      $("vote-recorder")?.remove();
+      if (!voteResult) return;
+      const wrapper = document.createElement("div");
+      wrapper.className = "field full";
+      wrapper.id = "vote-recorder";
+      wrapper.tabIndex = -1;
+      const heading = document.createElement("label");
+      heading.textContent = "Revealed votes";
+      const hint = document.createElement("p");
+      hint.className = "hint";
+      hint.textContent = "Record each player's revealed Ja or Nein ballot.";
+      const list = document.createElement("div");
+      list.className = "vote-record-list";
+      for (const number of livingSeats()) {
+        const row = choiceButtonGroup(playerName(number), `vote-seat-${number}`, [["yes", "Ja"], ["no", "Nein"]], state.game.votes.get(number) ?? "");
+        row.classList.add("vote-record-row");
+        row.querySelector("label").classList.add("vote-record-name");
+        row.querySelector(".choice-button-group").classList.add("vote-record-buttons");
+        list.append(row);
+      }
+      wrapper.append(heading, hint, list);
+      $("workflow-fields").append(wrapper);
+    }
+
     function setChoiceButtonValue(id, value, disabled = false) {
       const input = $(id);
       if (!input) return;
@@ -812,7 +847,8 @@
       if (stage === "nomination") disabled = !$("actual-chancellor")?.value;
       else if (stage === "vote") {
         const result = $("actual-vote-result")?.value;
-        disabled = !result || (result === "failed" && !$("actual-own-vote")?.value) || (result === "passed" && Number($("fasPolicies").value) >= 3 && !$("hitler-election")?.value);
+        const allVotesEntered = livingSeats().every((number) => state.game.votes.has(number));
+        disabled = !result || !allVotesEntered || (result === "passed" && Number($("fasPolicies").value) >= 3 && !$("hitler-election")?.value);
       } else if (stage === "president-discard") {
         const cards = $("hand")?.value.toUpperCase().split(/[ ,]+/).filter((card) => card === "L" || card === "F") ?? [];
         const hasDiscardChoice = new Set(cards).size > 1;
@@ -885,7 +921,7 @@
     function addEvidence(type, player, other = 0, label = "") {
       state.events.push({
         id: crypto.randomUUID(), type, seat: player, other,
-        label: label || ({ "fascist-policy": "F policy", "liberal-policy": "L policy", "voted-failed": "Yes / failed", "rejected-failed": "No / failed", "investigated-f": "Saw fascist", "investigated-l": "Saw liberal", "election-trust": "Passed gov't" })[type] || type
+        label: label || ({ "fascist-policy": "F policy", "liberal-policy": "L policy", "voted-failed": "Yes / failed", "rejected-failed": "No / failed", "vote-yes-failed": "Yes / failed", "vote-no-failed": "No / failed", "vote-yes-passed": "Yes / passed", "vote-no-passed": "No / passed", "investigated-f": "Saw fascist", "investigated-l": "Saw liberal", "election-trust": "Passed gov't" })[type] || type
       });
     }
 
@@ -966,7 +1002,7 @@
       } else if (game.stage === "vote") {
         $("workflow-step").textContent = "VOTE ON GOVERNMENT";
         $("workflow-title").textContent = `${playerName(game.president)} + ${playerName(game.chancellor)}`;
-        $("workflow-prompt").textContent = "Review the role estimates, cast your vote, then record the table result. If it fails, your vote is added to the evidence log.";
+        $("workflow-prompt").textContent = "Record whether the government passed, then enter every revealed Ja/Nein ballot to update role estimates.";
         $("workflow-fields").append(workflowSelect("Government passed?", "actual-vote-result", [["passed", "Yes, government elected"], ["failed", "No, government rejected"]]));
         $("advance-game").textContent = "Record vote and continue →";
       } else if (game.stage === "president-discard") {
@@ -1116,15 +1152,18 @@
         if (!requireWorkflowValue("actual-chancellor", "Select the chancellor who was actually nominated.")) return;
         const nominee = Number($("actual-chancellor").value);
         game.chancellor = nominee;
+        game.votes.clear();
         game.stage = "vote";
       } else if (game.stage === "vote") {
         if (!requireWorkflowValue("actual-vote-result", "Record whether the government passed or failed.")) return;
         const voteResult = $("actual-vote-result").value;
         if (voteResult === "passed" && Number($("fasPolicies").value) >= 3 && !requireWorkflowValue("hitler-election", "Record whether Hitler's election ended the game.")) return;
+        if (!livingSeats().every((number) => game.votes.has(number))) return showWorkflowError("vote-recorder", "Record every player's revealed vote.");
+        for (const number of livingSeats()) {
+          const vote = game.votes.get(number);
+          addEvidence(`vote-${vote}-${voteResult}`, number);
+        }
         if (voteResult === "failed") {
-          if (!requireWorkflowValue("actual-own-vote", "Record your Ja or Nein vote so the evidence log stays accurate.")) return;
-          const ownVote = $("actual-own-vote").value;
-          if (ownVote) addEvidence(ownVote === "yes" ? "voted-failed" : "rejected-failed", seat("you"));
           finishFailedGovernment();
         } else {
           $("tracker").value = "0";
@@ -1245,6 +1284,7 @@
         chancellor: 0,
         lastPresident: 0,
         lastChancellor: 0,
+        votes: new Map(),
         pendingPower: "",
         pendingPolicy: "",
         specialReturn: 0,
@@ -1298,8 +1338,8 @@
         if (!choices.length) return { error: "No eligible chancellor candidates remain. Check the living seats and previous government term limits.", beliefs, knownRoles };
         choices.sort((a, b) => b.value - a.value);
         const best = choices[0];
-        const probabilities = regretMatch(choices);
-        choices.forEach((choice, index) => choice.probability = probabilities[index]);
+        const scoreShares = relativeScoreShares(choices);
+        choices.forEach((choice, index) => choice.scoreShare = scoreShares[index]);
         return { choices, best, reason: ownTeam < 0 ? `As a liberal, favor the lowest-risk eligible candidate. ${best.reason}` : `As a fascist, favor a teammate or a high-risk candidate. ${best.reason}`, beliefs, knownRoles };
       }
       if (phase === "vote") {
@@ -1353,8 +1393,8 @@
       }
       if (!choices.length) return { error: "No legal choices. Check the current president, previous chancellor, and your seat.", beliefs, knownRoles };
       choices.sort((a, b) => b.value - a.value);
-      const probabilities = regretMatch(choices);
-      choices.forEach((choice, index) => choice.probability = probabilities[index]);
+      const scoreShares = relativeScoreShares(choices);
+      choices.forEach((choice, index) => choice.scoreShare = scoreShares[index]);
       const best = choices[0];
       return { choices, best, reason: best.reason, beliefs, knownRoles };
     }
@@ -1425,9 +1465,9 @@
       const knownCount = [...result.knownRoles.values()].filter((value) => value !== undefined && value !== null && value !== "").length;
       const phaseName = $("phase").selectedOptions[0].textContent;
       const bestMoves = equallyBestChoices(result);
-      const bestMoveShare = bestMoves.reduce((sum, choice) => sum + (choice.probability ?? 0), 0);
+      const bestMoveShare = bestMoves.reduce((sum, choice) => sum + (choice.scoreShare ?? 0), 0);
       const bestMoveLabel = bestMoves.map((choice) => choice.name).join(" / ");
-      container.innerHTML = `<div class="result-top"><div><div class="result-label">${bestMoves.length > 1 ? "Equal best moves" : "Recommended"} / ${escapeHtml(phaseName)}</div><h3>${escapeHtml(bestMoveLabel)}</h3></div><div class="confidence">${Math.round(bestMoveShare * 100)}% regret share</div></div><p class="reason">${escapeHtml(result.reason)}</p><p class="reason">Evidence basis: ${knownCount} known seats, ${state.events.length} logged public events, board state from policy tracks and current government.</p><div class="choice-list">${result.choices.map((choice, index) => `<div class="choice-row ${index === 0 ? "selected" : ""}"><span>${escapeHtml(choice.name)}</span><div class="bar"><i style="width:${Math.round((choice.probability ?? 0) * 100)}%"></i></div><b>${Math.round((choice.probability ?? 0) * 100)}%</b></div>`).join("")}</div>`;
+      container.innerHTML = `<div class="result-top"><div><div class="result-label">${bestMoves.length > 1 ? "Equal best moves" : "Recommended"} / ${escapeHtml(phaseName)}</div><h3>${escapeHtml(bestMoveLabel)}</h3></div><div class="confidence">${Math.round(bestMoveShare * 100)}% score share</div></div><p class="reason">${escapeHtml(result.reason)}</p><p class="reason">Evidence basis: ${knownCount} known seats, ${state.events.length} logged public events, board state from policy tracks and current government.</p><div class="choice-list">${result.choices.map((choice, index) => `<div class="choice-row ${index === 0 ? "selected" : ""}"><span>${escapeHtml(choice.name)}</span><div class="bar"><i style="width:${Math.round((choice.scoreShare ?? 0) * 100)}%"></i></div><b>${Math.round((choice.scoreShare ?? 0) * 100)}%</b></div>`).join("")}</div>`;
       renderBeliefs(result.beliefs, result.knownRoles);
     }
 
@@ -1530,17 +1570,13 @@
     });
     $("workflow-fields").addEventListener("change", (event) => {
       $("workflow-error").hidden = true;
+      const voteSeatMatch = /^vote-seat-(\d+)$/.exec(event.target.id);
+      if (voteSeatMatch) state.game.votes.set(Number(voteSeatMatch[1]), event.target.value);
       if (event.target.id === "actual-vote-result") {
-        const voteField = $("actual-own-vote")?.closest(".field");
         const hitlerField = $("hitler-election")?.closest(".field");
         if (event.target.value === "failed") {
-          if (!voteField) {
-            const wrapper = workflowSelect("Your vote (required if rejected)", "actual-own-vote", [["yes", "Ja"], ["no", "Nein"]]);
-            event.target.closest(".field").insertAdjacentElement("afterend", wrapper);
-          }
           hitlerField?.remove();
         } else {
-          voteField?.remove();
           if (event.target.value === "passed" && Number($("fasPolicies").value) >= 3 && !hitlerField) {
             const wrapper = workflowSelect("Did Hitler's election end the game?", "hitler-election", [["no", "No / not known to be Hitler"], ["yes", "Yes, Fascists win"]], "Select the game result");
             event.target.closest(".field").insertAdjacentElement("afterend", wrapper);
@@ -1548,6 +1584,7 @@
             hitlerField?.remove();
           }
         }
+        renderVoteRecorder(event.target.value);
       }
       updateAdvanceButtonState();
     });
@@ -1593,7 +1630,9 @@
       const other = Number($("eventOther").value);
       const labels = {
         "fascist-policy": "F policy", "liberal-policy": "L policy", "voted-failed": "Yes / failed",
-        "rejected-failed": "No / failed", "investigated-f": "Saw fascist", "investigated-l": "Saw liberal", "election-trust": "Passed gov't"
+        "rejected-failed": "No / failed", "vote-yes-passed": "Yes / passed", "vote-no-passed": "No / passed",
+        "vote-yes-failed": "Yes / failed", "vote-no-failed": "No / failed", "investigated-f": "Saw fascist",
+        "investigated-l": "Saw liberal", "election-trust": "Passed gov't"
       };
       state.events.push({ id: crypto.randomUUID(), type, seat: seatNumber, other: type.includes("policy") || type === "election-trust" ? other : 0, label: labels[type] });
       renderAll();
