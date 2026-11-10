@@ -117,6 +117,10 @@
     td { padding: 9px 6px; border-top: 1px solid #273129; font-size: 12px; }
     td:last-child, th:last-child { text-align: right; }
     .player-name { color: var(--ink); }
+    .player-name-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+    .player-name-actions { display: flex; gap: 4px; }
+    .name-order-button { width: 40px; min-height: 40px; border: 1px solid var(--line); background: #111814; color: var(--ink); cursor: pointer; font-size: 16px; }
+    .name-order-button:disabled { opacity: .35; cursor: not-allowed; }
     .prob { font: 12px var(--mono); }
     .prob.high { color: var(--red); }
     .prob.low { color: var(--blue); }
@@ -413,7 +417,23 @@
         input.placeholder = `Player ${number}`;
         input.value = state.playerNames[number - 1] ?? "";
         input.dataset.playerSeat = String(number);
-        wrapper.append(label, input);
+        const control = document.createElement("div");
+        control.className = "player-name-control";
+        const actions = document.createElement("div");
+        actions.className = "player-name-actions";
+        for (const [direction, glyph, action] of [[-1, "↑", "up"], [1, "↓", "down"]]) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "name-order-button";
+          button.textContent = glyph;
+          button.title = `Move seat ${number} ${action}`;
+          button.setAttribute("aria-label", `Move seat ${number} ${action}`);
+          button.dataset.playerSeat = String(number);
+          button.dataset.nameMove = String(direction);
+          actions.append(button);
+        }
+        control.append(input, actions);
+        wrapper.append(label, control);
         container.append(wrapper);
       }
     }
@@ -1535,6 +1555,19 @@
       state.playerNames[Number(input.dataset.playerSeat) - 1] = input.value;
       refreshSeatLabels();
       renderAll();
+    });
+    $("player-name-fields").addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-name-move]");
+      if (!button) return;
+      const sourceIndex = Number(button.dataset.playerSeat) - 1;
+      const targetIndex = (sourceIndex + Number(button.dataset.nameMove) + playerCount()) % playerCount();
+      const sourceName = state.playerNames[sourceIndex] ?? "";
+      state.playerNames[sourceIndex] = state.playerNames[targetIndex] ?? "";
+      state.playerNames[targetIndex] = sourceName;
+      renderPlayerNameFields();
+      refreshSeatLabels();
+      renderAll();
+      $(`player-name-${targetIndex + 1}`)?.focus();
     });
     $("phase").addEventListener("change", () => { renderPhaseFields(); renderAll(); });
     $("role").addEventListener("change", () => { renderRoleFields(); renderAll(); });
